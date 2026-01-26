@@ -10,6 +10,8 @@ The goal of this work is two-fold:
 
 ## Read in a population file 
 
+Allows you to read in and convert to a population file. Only columns necessary for subsequent analysis are kept. 
+
 ## Read in facilities
 
 ## Read in a network
