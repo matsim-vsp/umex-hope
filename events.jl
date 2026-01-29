@@ -6,7 +6,10 @@ using EzXML
 function event_reader(file_path, actType_or_person)
 
     """ Read an events file (xml), yielding each contained event.
-        Events will be
+        Events will be saved in a dictionary where the key is equal to the activity type/agent id, while the value is the df containing all corresponding events.
+
+        param: filepath path to the file
+        param: actType_or_person whether you want df by activity type or by agent
     """
     document = read(file_path, String)
     #document = read("009.output_events.xml", String)
@@ -25,11 +28,11 @@ function event_reader(file_path, actType_or_person)
             act_type = event[actType_or_person]
             act_type = rsplit(act_type, '_', limit=2)[1]
         else
-            if actType_or_person == "actType"
-                act_type = "no_actType"  # Or use: continue to skip these events
+            if actType_or_person == "actType" #Check if activity type exists
+                act_type = "no_actType"  
             end
-            if actType_or_person == "person"
-                act_type = "no_person"  # Or use: continue to skip these events
+            if actType_or_person == "person" #Check if agent has an id
+                act_type = "no_person"  
             end
         end
         
@@ -37,7 +40,7 @@ function event_reader(file_path, actType_or_person)
             # Collect all attributes as strings
             attrs = Dict(attr.name => attr.content for attr in eachattribute(event))
             
-            # Initialize DataFrame for this type if it doesn't exist
+            # Initialize DataFrame for this activity type/agent if it doesn't exist
             if !haskey(dfs_by_type, act_type)
                 dfs_by_type[act_type] = DataFrame()
             end
