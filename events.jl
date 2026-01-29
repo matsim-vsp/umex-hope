@@ -26,6 +26,7 @@ function event_reader(file_path)
 
         if haskey(event, "actType")
             act_type = event["actType"]
+            act_type = rsplit(act_type, '_', limit=2)[1]
         else
             act_type = "no_actType"  # Or use: continue to skip these events
         end

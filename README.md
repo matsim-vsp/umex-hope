@@ -8,6 +8,8 @@ The goal of this work is two-fold:
 
 ## Process an event file
 
+As of now, an event file is converted to a dictionary. Each key corresponds to an activity type. The corresponding value is a data frame containing all events of the chosen type.
+
 ## Read in a population file 
 
 Allows you to read in and convert to a population file. Only columns necessary for subsequent analysis are kept. 
