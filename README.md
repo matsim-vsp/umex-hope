@@ -10,16 +10,20 @@ The goal of this work is two-fold:
 
 As of now, an event file is converted to a dictionary. Each key corresponds to an activity type. The corresponding value is a data frame containing all events of the chosen type.
 
-## Read in a population file 
+## Read a population file 
 
 Allows you to read in and convert to a population file. Only columns necessary for subsequent analysis are kept. 
 
-## Read in facilities
+## Read facilities
 
 Read a facilities file (XML) and convert it to a dataframe.
 
-## Read in a network
+## Read a network
 
-## Read in plans
+## Read plans
 
-## Read in experienced plans
+Same as "population", see above.
+
+## Read experienced plans
+
+Same formt as the "population" file, but contains what the agent actually did, and not what he/she planned.
