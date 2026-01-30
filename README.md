@@ -16,6 +16,8 @@ Allows you to read in and convert to a population file. Only columns necessary f
 
 ## Read in facilities
 
+Read a facilities file (XML) and convert it to a dataframe.
+
 ## Read in a network
 
 ## Read in plans
