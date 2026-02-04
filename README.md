@@ -20,11 +20,12 @@ Read a facilities file (XML) and convert it to a dataframe.
 
 ## Read a network
 
-## Read plans
-
-Same as "population", see above.
-
 ## Read experienced plans
 
 Same formt as the "population" file, but contains what the agent actually did, and not what he/she planned.
 Agents and their attributes are returned as a dataframe. Activities of agents are returned as a nested dictionary. 
+
+## Read plans
+
+Same as "experienced plans", see above. No separate function necessary. User may simple leverage _experienced_plans_reader_.
+
