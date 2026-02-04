@@ -20,6 +20,8 @@ Read a facilities file (XML) and convert it to a dataframe.
 
 ## Read a network
 
+Read a network file (XML) and convert it to a dataframe.
+
 ## Read experienced plans
 
 Same formt as the "population" file, but contains what the agent actually did, and not what he/she planned.
