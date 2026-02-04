@@ -4,15 +4,13 @@ using LightXML
 using EzXML
 
 function experienced_plans_reader(file_path)
-
+    # Read and parse XML file
     document = read(file_path, String)
-        #document = read("009.output_events.xml", String)
     xml_doc = parsexml(document)
-    
-    # Get all event elements
+    # Get all person elements
     persons = findall("//person", xml_doc)
 
-    # First pass: collect all unique attribute names across all persons
+    # Collect all unique attribute names across all persons
     all_attr_names = Set{String}()
     for person in persons
         for attr in findall(".//attribute", person)
@@ -20,11 +18,10 @@ function experienced_plans_reader(file_path)
         end
     end
 
-    # Convert to sorted vector for consistent column ordering
-    attr_names = sort(collect(all_attr_names))
-
-    # Second pass: build the data row by row
+    # Build df/dictionary person by person
     rows = []
+    activities_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
+
     for person in persons
         row = Dict{String, Any}()
         row["id"] = person["id"]
@@ -42,6 +39,20 @@ function experienced_plans_reader(file_path)
         end
         
         push!(rows, row)
+
+        # We are not interested in commercial agents, they are excluded from the dictionary
+        prefixes = ["freight", "goodsTraffic", "commercialPersonTraffic"]
+        if !any(prefix -> startswith(person["id"], prefix), prefixes)
+            activities = findall(".//activity", person)
+
+            inner_dict = Dict{String, Dict{String, String}}()
+            for activity in activities
+                inner_dict[activity["type"]] = Dict(attr.name => attr.content for attr in eachattribute(activity))
+            end 
+
+            activities_dictionary[person["id"]] = inner_dict
+        end
+
     end
 
     # Build the DataFrame from the rows
@@ -49,6 +60,6 @@ function experienced_plans_reader(file_path)
     df = select(df, :id, :carAvail, :sex, :SNZ_hhSize, :SNZ_hhIncome, :income, :SNZ_gender, :home_x, :home_y, :SNZ_age)
     df = filter(row -> !occursin("goodsTraffic", row.id) && !occursin("freight", row.id) && !occursin("commercial", row.id), df)
 
-    return df
+    return df, activities_dictionary
 
 end

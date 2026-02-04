@@ -27,4 +27,4 @@ Same as "population", see above.
 ## Read experienced plans
 
 Same formt as the "population" file, but contains what the agent actually did, and not what he/she planned.
-Agents and their attributes are returned as a dataframe. 
+Agents and their attributes are returned as a dataframe. Activities of agents are returned as a nested dictionary. 
