@@ -2,7 +2,7 @@ using Pkg
 using CSV
 using DataFrames
 
-function population(file_path)
+function population_reader(file_path)
 
     populationDf = CSV.read(file_path, DataFrame, 
                             header = 1, 
