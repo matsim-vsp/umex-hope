@@ -8,16 +8,38 @@ function network_reader(file_path)
 
     # Get all node elements
     nodes = findall("//node", xml_doc)
+    links = findall("//link", xml_doc)
 
     # Create rows of data frame that contain info on nodes (id, x coordinate, y coordinate)
-    rows = []
+    rows_nodes = []
+    rows_links = []
 
     for node in nodes
-        row = (node["id"], node["x"], node["y"])
-        push!(rows, row)
+        row = (node["id"], parse(Float32, node["x"]), parse(Float32, node["y"]))
+        push!(rows_nodes, row)
     end
 
-    df = DataFrame(rows)
-    df = rename!(df,[:id,:x, :y]) 
+    for link in links
+        row = (link["id"], strip(link["from"]), strip(link["to"]))
+        push!(rows_links, row)
+    end
+
+    df_nodes = DataFrame(rows_nodes)
+    df_nodes = rename!(df_nodes,[:id,:x, :y]) 
+    filter!(row -> !contains(row.id, "pt_short"), df_nodes)
+
+    df_links = DataFrame(rows_links)
+    df_links = rename!(df_links,[:id_link,:from_node, :to_node]) 
+    filter!(row -> !contains(row.id_link, "pt"), df_links)
+
+    # Create a helper dataframe with the desired order
+    order_df = DataFrame(from_node = nodes_df.id, order = 1:nrow(nodes_df))
+
+    # Join and sort
+    df_links = leftjoin(df_links, order_df, on = :from_node)
+    sort!(df_links, :order)
+    select!(df_links, Not(:order))  # drop the helper column
+
+    return df_nodes, df_links
 
 end
