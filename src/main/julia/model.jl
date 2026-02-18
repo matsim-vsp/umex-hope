@@ -19,6 +19,8 @@ using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
     heat_exposure::Float64
     days_exposed :: Int
     inf_chance_for_iteration::Float64 # if susceptible person had contact with infectious person, then this variable saves the infection chance (including the reduction_factor). In all other cases: missing
+    pregnancy::Int64
+    premorbidity::Int64
 end
 
 function run_model(params)
@@ -33,9 +35,10 @@ function run_model(params)
             output_path = params[:output_folder]
         end
 
-        # writes _info.csv with all relevant input parameters
-        # TODO: when running on cluster, _info.csv gets overwritten by each seperate job.
-        #CSV.write(output_path * "/_info.csv", params)
+        # writes _info.csv with all relevant input parameters; agent_attributes needs to be removed, is simply too large
+        params_subset = filter(p -> p.first != :agent_attributes, params)
+        params_subset = filter(p -> p.first != :network, params_subset)
+        CSV.write(joinpath(output_path, "_info.csv"), params_subset)
        
         # empty dictionary, which will be filled with respective stat (e.g. susceptible count) for each model run (all iterations, rows of matrix) for each seed (columns of matrix)
         results = Dict(
@@ -61,7 +64,7 @@ function run_model(params)
             # Create model
             model = initialize(
                 net,
-                base_susceptibility,
+                params[:base_susceptibility],
                 params[:recovery_rate],
                 seed,
                 25,
@@ -101,12 +104,12 @@ end
 
 # creates network with default values
 function initializeNetwork()
-        net = Graphs.random_regular_graph(100, 5)
+        net = params[:network]
     return net
 end
 
 
-# activates agents in following order: Recovered -> Infectious -> Presymptomatic -> Exposed -> Susceptible 
+# activates agents in following order: Affected -> Exposed -> Susceptible 
 function AES_scheduler(agent)
     return -agent.health_status
 end
@@ -163,7 +166,7 @@ function initialize(net,
                                 params[:agent_attributes][id,7],
                                 params[:agent_attributes][id,8], 
                                 params[:agent_attributes][id,9],
-                                0, 0, 0, 0)
+                                params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity])
                                 
         add_agent_single!(p, model)
     end
@@ -180,6 +183,25 @@ function initialize(net,
             throw(DomainError)
         end
     end
+
+    # set initial values for pregnancy
+    for agent in allagents(model)
+        if agent.SNZ_age > 16 && agent.SNZ_age < 45 && agent.SNZ_gender == "f"
+           if rand() < 0.5
+            agent.pregnancy = 1
+           end 
+        end
+    end
+
+    # set initial values for pre-morbidity
+    for agent in allagents(model)
+        if agent.SNZ_age > 65
+            if rand() < 0.5
+                agent.premorbidity = 1
+            end
+        end
+    end
+
 
     # push cnts to first entry in history of each disease states
     push_state_count_to_history!(model)
