@@ -20,7 +20,8 @@ Read a facilities file (XML) and convert it to a dataframe.
 
 ## Read a network
 
-Read a network file (XML) and convert it to a dataframe.
+- _network.jl_ : Read a network file (XML) and convert it to two dataframes (one for nodes, one for edges).
+- _network_creation.jl_ : Takes the two dataframes from _network.jl_ and converts them 
 
 ## Read experienced plans
 
