@@ -20,15 +20,15 @@ Read a facilities file (XML) and convert it to a dataframe.
 
 ## Read a network
 
-- _network.jl_ : Read a network file (XML) and convert it to two dataframes (one for nodes, one for edges).
-- _network_creation.jl_ : Takes the two dataframes from _network.jl_ and converts them 
+- **network.jl** : Read a network file (XML) and convert it to two dataframes (one for nodes, one for edges).
+- **network_creation.jl** : Takes the two dataframes from _network.jl_ and converts them 
 
 ## Read experienced plans
 
-Same formt as the "population" file, but contains what the agent actually did, and not what he/she planned.
+Same formt as the _population_ file, but contains what the agent actually did, and not what they planned.
 Agents and their attributes are returned as a dataframe. Activities of agents are returned as a nested dictionary. 
 
 ## Read plans
 
-Same as "experienced plans", see above. No separate function necessary. User may simple leverage _experienced_plans_reader_.
+Same as _experienced plans_, see above. No separate function necessary. User may simple leverage _experienced_plans_reader_.
 
