@@ -4,11 +4,20 @@ using Graphs
 using GraphMakie
 using GLMakie
 
-
 include("network.jl")
 
-function network_creation(path_file)
+"""
+network_creation(path_file)
 
+Creates a graph based on your network. Network needs to be provided as XML. Calls on network_reader, which actually reads in network file and creates one data frame containing the nodes and one containing the edges.
+
+# Arguments
+- `path_file::String`: path of network file you want to turn into a graph.
+
+# Returns
+- `g::SimpleGraph`. Graph type from graphs.jl library.
+"""
+function network_creation(path_file)
     #nodes_df, links_df = network_reader("hannover-1pct.output_network.xml")
     nodes_df, links_df = network_reader(path_file)
 
@@ -30,8 +39,8 @@ function network_creation(path_file)
         add_edge!(g, start_node, end_node)
     end
 
-    # Plotting to check if network's been read in correctly
-    # # Pick the first 10,000 nodes
+    #Plotting to check if network's been read in correctly
+    # Pick the first 10,000 nodes
     # sub_nodes = collect(1:10000)
 
     # # Create subgraph - returns the subgraph and a mapping back to original indices

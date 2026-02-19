@@ -3,14 +3,16 @@ using DataFrames
 using XML
 using EzXML
 
+"""
+    event_reader(file_path, actType_or_person)    
+
+    Reads an events file (xml), returns a dataframe.
+
+    # Arguments
+    `file_path::String`: path of events file you want to read.
+    `actType_or_person::String`: Determines if output_df is by activity type or agent. Options are "actType" and "person".
+"""
 function event_reader(file_path, actType_or_person)
-
-    """ Read an events file (xml), yielding each contained event.
-        Events will be saved in a dictionary where the key is equal to the activity type/agent id, while the value is the df containing all corresponding events.
-
-        param: filepath path to the file
-        param: actType_or_person whether you want df by activity type or by agent
-    """
     document = read(file_path, String)
     #document = read("009.output_events.xml", String)
     xml_doc = parsexml(document)

@@ -2,6 +2,18 @@ using Pkg
 using DataFrames
 using EzXML
 
+"""
+network_reader(file_path)
+
+Reads in network file. Network must be provided as XML.
+
+# Arguments
+- `path_file::String`: path of network file you want to read.
+
+# Returns
+- `df_nodes`. Dataframe containing node_id, their x- and y-coordinate.
+- `df_links`. Dataframe containing edge_id, their starting and ending node.
+"""
 function network_reader(file_path)
     document = read(file_path, String)
     xml_doc = parsexml(document)
@@ -33,7 +45,7 @@ function network_reader(file_path)
     filter!(row -> !contains(row.id_link, "pt"), df_links)
 
     # Create a helper dataframe with the desired order
-    order_df = DataFrame(from_node = nodes_df.id, order = 1:nrow(nodes_df))
+    order_df = DataFrame(from_node = df_nodes.id, order = 1:nrow(df_nodes))
 
     # Join and sort
     df_links = leftjoin(df_links, order_df, on = :from_node)

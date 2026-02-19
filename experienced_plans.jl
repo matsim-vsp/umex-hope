@@ -3,6 +3,13 @@ using DataFrames
 using LightXML
 using EzXML
 
+
+"""
+    experienced_plans_reader(file_path)
+
+    # Arguments
+    `file_path::String`: path of experienced plans file you want to read.
+"""
 function experienced_plans_reader(file_path)
     # Read and parse XML file
     document = read(file_path, String)
