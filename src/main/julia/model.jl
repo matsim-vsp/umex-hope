@@ -38,6 +38,7 @@ function run_model(params)
         # writes _info.csv with all relevant input parameters; agent_attributes needs to be removed, is simply too large
         params_subset = filter(p -> p.first != :agent_attributes, params)
         params_subset = filter(p -> p.first != :network, params_subset)
+        params_subset = filter(p -> p.first != :temperature, params_subset)
         CSV.write(joinpath(output_path, "_info.csv"), params_subset)
        
         # empty dictionary, which will be filled with respective stat (e.g. susceptible count) for each model run (all iterations, rows of matrix) for each seed (columns of matrix)
@@ -54,12 +55,13 @@ function run_model(params)
         println("PRINT STH INTERESTING WHILE RUNNING THE SIMULATION")
         println("#######################")
 
+        local model 
+
         # loop through all seeds
         for seed in 1:params[:seeds]
 
             # Create network 
-            net = initializeNetwork(
-            )
+            net = initializeNetwork(params[:network])
 
             # Create model
             model = initialize(
@@ -79,6 +81,7 @@ function run_model(params)
             push!(results["susceptible"], model.hist_susceptible)
             push!(results["exposed"], model.hist_exposed)
             push!(results["affected"], model.hist_affected)
+
         end
 
 
@@ -99,13 +102,21 @@ function run_model(params)
             output_file_name = "TESTTESTTEST.csv"
             #CSV.write(output_path * output_file_name, df)
         end
+
+        df = DataFrame(
+            susceptible = model.hist_susceptible,
+            exposed = model.hist_exposed,
+            affected = model.hist_affected
+        )
+        CSV.write(joinpath(output_path, "SusExpAffected.csv"), df)
+
+        return model
     end
 end
 
 # creates network with default values
-function initializeNetwork()
-        net = params[:network]
-    return net
+function initializeNetwork(network)
+    return network
 end
 
 
@@ -156,7 +167,8 @@ function initialize(net,
     )
 
     # add agents to model
-    for id in 1:nrow(params[:agent_attributes])
+    #for id in 1:nrow(params[:agent_attributes])
+    for id in 1:10
         p = Person_Sim(id, 1, params[:agent_attributes][id,1],
                                 params[:agent_attributes][id,2], 
                                 params[:agent_attributes][id,3], 
@@ -205,7 +217,6 @@ function initialize(net,
 
     # push cnts to first entry in history of each disease states
     push_state_count_to_history!(model)
-
     return model
 end
 
@@ -228,10 +239,13 @@ end
 # Agent Step Function: this transitions agents from one disease state to another
 function agent_step!(person, model)
     
-    # if showing symptoms 
+    iteration = abmtime(model) + 1 #Such that iteration 0 coincides with 1st line of data frame
+    maxTemp = params[:temperature][iteration, "TX"]
+    # if affected
     if person.health_status == 2
-        if rand(model.rng) <= model.recovery_rate #Agents recover with a probability of recovery_rate
+        if rand() <= model.recovery_rate #Agents recover with a probability of recovery_rate
             person.health_status = 0
+            person.days_exposed = -1
             model.cnt_affected -= 1
             model.cnt_susceptible += 1
         end
@@ -240,17 +254,14 @@ function agent_step!(person, model)
     # if exposed
     if person.health_status == 1
         # E -> S
-        if model.threshold_temp <= 25 #Agents recover with a probability of recovery_rate
-            person.health_status = 0
-            person.days_exposed = 0
-            model.cnt_exposed -= 1
-            model.cnt_susceptible += 1
+        if params[:threshold_temp] <= maxTemp
+            person.days_exposed += 1
+        end
+
         # E -> I
-        # calculate infection chance
-        affected_chance = calc_affected_chance(model, person)
-        
-    elseif person.days_exposed == model.days_necessary_exposure
-            if rand(model.rng) < affected_chance
+        affected_chance = calc_affected_chance(model, person)        
+        if person.days_exposed == model.days_necessary_exposure
+            if rand() <= affected_chance
                 person.health_status = 2
                 model.cnt_exposed -= 1
                 model.cnt_affected += 1
@@ -258,23 +269,27 @@ function agent_step!(person, model)
                 person.health_status = 0
                 model.cnt_exposed -= 1
                 model.cnt_susceptible += 1
+                person.days_exposed = 0
             end
         end
     end
 
     # if susceptible
-    if person.health_status == 0
-        if model.temp > 25
-            person.health_status = 1 # change to exposed
-            model.cnt_exposed += 1
-            model.cnt_susceptible -= 1
+    if person.health_status == 0 
+        if person.days_exposed == 0
+            if params[:threshold_temp] <= maxTemp
+                person.health_status = 1 # change to exposed
+                model.cnt_exposed += 1
+                model.cnt_susceptible -= 1
+            end
+        elseif person.days_exposed == -1
+            person.days_exposed += 1
         end
     end
 end
 
 # calculate infection chance 
 function calc_affected_chance(model, person)
-    params[:base_susceptibility]
-
+    inf_chance = params[:base_susceptibility]
     return inf_chance
 end
