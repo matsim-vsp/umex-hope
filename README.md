@@ -1,6 +1,11 @@
 # umex-hope
 
-This repository contains out contribution to the umex-hope consortium (https://zkfn.de/umex-hope/). _Disclaimer:_ We are in the **very** early stages of building this library. At this point in time, we do not recommend using this for anything.
+This repository contains the contribution of the [Transport Systems Planning and Transport Telematics group](https://www.vsp.tu-berlin.de) of [Technische Universität Berlin](https://www.tu.berlin/) to the umex-hope consortium (https://zkfn.de/umex-hope/).
+_Disclaimer:_ We are in the **very** early stages of building this library. At this point in time, we do not recommend using this for anything.
+
+<a rel="TU Berlin" href="https://www.vsp.tu-berlin.de"><img src="https://svn.vsp.tu-berlin.de/repos/public-svn/ueber_uns/logo/TU_BERLIN_Logo_Lang_RGB_SR_rot.svg" width="35%" height="35%"/></a>
+
+
 The goal of this work is two-fold:
 
 1. Read MATSim output files into Julia and prepare them for data analysis and modeling workflows
