@@ -34,7 +34,7 @@ function experienced_plans_reader(file_path)
         row["id"] = person["id"]
         
         # Initialize all attributes as missing
-        for name in attr_names
+        for name in all_attr_names
             row[name] = missing
         end
         
