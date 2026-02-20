@@ -2,6 +2,12 @@ using Printf
 using Dates
 using DataFrames
 
+""" 
+    parse_time(t)
+
+    # Arguments
+    - t::String. Expects string of structure hh:mm:ss. Time 24:00:00 is not permissible in Julia and therefore mapped to 23:59:59
+"""
 function parse_time(t::String)
     parts = split(t, ":")
     h = parse(Int, parts[1])
@@ -11,6 +17,15 @@ function parse_time(t::String)
     return Time(t)
 end
 
+
+"""
+    out_of_home_duration(activities)
+
+    Computes amount of time (in hours) an agent spends outside their home based on their activities.
+
+    # Arguments
+    - activities::Dict. Nested dictionary where each key is represents an agent and each value is a dictionary containing the agent's activities.
+"""
 function out_of_home_duration(activities::Dict)
     total_seconds = 0
     start_times = [parse_time(val["start_time"]) for (key, val) in activities if haskey(val, "start_time")]
