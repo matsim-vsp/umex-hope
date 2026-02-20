@@ -15,6 +15,7 @@ using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
     home_y::Float64
     income::Float64
     sex::String
+    not_home_time::Float64
     health_status::Int # 0: Susceptible; 1: Exposed; 2: Affected
     heat_exposure::Float64
     days_exposed :: Int
@@ -23,6 +24,12 @@ using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
     premorbidity::Int64
 end
 
+"""
+    run_model(params)
+
+    # Arguments
+    - params::Dict. Dictionary containing all the necessary model parameters.
+"""
 function run_model(params)
     @time begin
 
@@ -114,17 +121,45 @@ function run_model(params)
     end
 end
 
-# creates network with default values
+"""
+    initializeNetwork(network)
+
+    initializes network on which agents operate.
+
+    # Arguments
+    - network
+"""
 function initializeNetwork(network)
     return network
 end
 
 
-# activates agents in following order: Affected -> Exposed -> Susceptible 
+"""
+    AES_scheduler(agent)
+
+    activates agents in following order: Affected -> Exposed -> Susceptible 
+
+    # Arguments
+    - agent::GraphAgent. Attribute health_status can be equal to 0 (susceptible), exposed (1), and affected (2).
+"""
 function AES_scheduler(agent)
     return -agent.health_status
 end
 
+
+"""
+    initialize(net, base_susceptibility, recovery_rate, seed, temp, days_necessary_exposure)
+
+    Initialization of model.
+
+    # Arguments
+    - net
+    - base_susceptibility
+    - recovery_rate
+    - seed
+    - temp
+    - days_necessary_exposure
+"""
 function initialize(net,
     base_susceptibility, # chance of being affected between 0.0 (no chance) and 1.0 (100% chance), given (heat) exposure
     recovery_rate, # for affected agents, chance that they will recover, between 0.0 and 1.0
@@ -168,7 +203,7 @@ function initialize(net,
 
     # add agents to model
     #for id in 1:nrow(params[:agent_attributes])
-    for id in 1:10
+    for id in 1:100
         p = Person_Sim(id, 1, params[:agent_attributes][id,1],
                                 params[:agent_attributes][id,2], 
                                 params[:agent_attributes][id,3], 
@@ -178,6 +213,7 @@ function initialize(net,
                                 params[:agent_attributes][id,7],
                                 params[:agent_attributes][id,8], 
                                 params[:agent_attributes][id,9],
+                                params[:agent_attributes][id,10],
                                 params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity])
                                 
         add_agent_single!(p, model)
@@ -222,13 +258,17 @@ end
 
 # model state occurs at end of each iteration, after agent_step is applied to all agents
 function model_step!(model)
-
     # push disease state counts for current (ending) iteration to respective history. 
     push_state_count_to_history!(model)
 
 end
 
-# updates disease state histories with disease state counts for current iteration
+
+"""
+    push_state_count_to_history(model)
+
+    Updates disease state histories with disease state counts for current iteration.
+"""
 function push_state_count_to_history!(model)
     push!(model.hist_susceptible, model.cnt_susceptible)
     push!(model.hist_exposed, model.cnt_exposed)
@@ -236,7 +276,11 @@ function push_state_count_to_history!(model)
     #push!(model.hist_affcted_chance, model.sum_affected_prob_for_it / model.cnt_potential_affected_for_it)
 end
 
-# Agent Step Function: this transitions agents from one disease state to another
+"""
+    agent_step!(person, model)
+
+    Transitions agents from one disease state to another.
+"""
 function agent_step!(person, model)
     
     iteration = abmtime(model) + 1 #Such that iteration 0 coincides with 1st line of data frame
@@ -288,8 +332,12 @@ function agent_step!(person, model)
     end
 end
 
-# calculate infection chance 
+"""
+    calc_affected_chance(model, person)
+
+    Calculates chance of becoming affected.
+"""
 function calc_affected_chance(model, person)
-    inf_chance = params[:base_susceptibility]
+    inf_chance = person.not_home_time*params[:base_susceptibility]
     return inf_chance
 end
