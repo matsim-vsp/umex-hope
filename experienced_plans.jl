@@ -2,7 +2,7 @@ using Pkg
 using DataFrames
 using LightXML
 using EzXML
-
+using Dates
 
 """
     experienced_plans_reader(file_path)
@@ -59,7 +59,19 @@ function experienced_plans_reader(file_path)
 
             activities_dictionary[person["id"]] = inner_dict
         end
+    end
 
+    for (person_id, nested_dict) in activities_dictionary
+        for (key, val) in nested_dict
+            if startswith(key, "home")
+                if !haskey(nested_dict[key], "start_time")
+                    nested_dict[key]["start_time"] = "00:00:00"
+                end
+                if !haskey(nested_dict[key], "end_time")
+                    nested_dict[key]["end_time"] = "23:59:59"
+                end
+            end
+        end
     end
 
     # Build the DataFrame from the rows
