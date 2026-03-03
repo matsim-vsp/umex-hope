@@ -2,6 +2,8 @@ using Pkg
 Pkg.activate(@__DIR__)
 using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
 
+include("calc_affected_chance.jl")
+
 #This work partly recycles code from previous work https://github.com/matsim-vsp/epi-net-sim/blob/main/src/main/julia/model.jl
 
 # Define Agent
@@ -22,6 +24,7 @@ using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
     inf_chance_for_iteration::Float64 # if susceptible person had contact with infectious person, then this variable saves the infection chance (including the reduction_factor). In all other cases: missing
     pregnancy::Int64
     premorbidity::Int64
+    experienced_plans_reader::Dict
 end
 
 """
@@ -46,6 +49,7 @@ function run_model(params)
         params_subset = filter(p -> p.first != :agent_attributes, params)
         params_subset = filter(p -> p.first != :network, params_subset)
         params_subset = filter(p -> p.first != :temperature, params_subset)
+        params_subset = filter(p -> p.first != :experienced_plans_dict, params_subset)
         CSV.write(joinpath(output_path, "_info.csv"), params_subset)
        
         # empty dictionary, which will be filled with respective stat (e.g. susceptible count) for each model run (all iterations, rows of matrix) for each seed (columns of matrix)
@@ -77,7 +81,8 @@ function run_model(params)
                 params[:recovery_rate],
                 seed,
                 25,
-                params[:days_necessary_exposure])
+                params[:days_necessary_exposure],
+                params[:exp_trial])
 
             # Step through all iterations. In each iteration:
             #   1) agent_step function is applied to each agent
@@ -165,7 +170,8 @@ function initialize(net,
     recovery_rate, # for affected agents, chance that they will recover, between 0.0 and 1.0
     seed, # random seed
     temp,
-    days_necessary_exposure # number of days agent can be exposed before probability of becoming affected triggers. If 0, agent may become affected on the first day of a heat period. 
+    days_necessary_exposure, # number of days agent can be exposed before probability of becoming affected triggers. If 0, agent may become affected on the first day of a heat period. 
+    exp_trial
 )
 
 # create a space
@@ -186,7 +192,10 @@ function initialize(net,
         #history of count for each iteration
         :hist_susceptible => [],
         :hist_exposed => [],
-        :hist_affected => []
+        :hist_affected => [],
+        #starting time, start at midnight
+        :timer => Dates.Time("00:00:00"),
+        :exp_trial => exp_trial
     )
 
     # create random number generator
@@ -203,7 +212,12 @@ function initialize(net,
 
     # add agents to model
     #for id in 1:nrow(params[:agent_attributes])
-    for id in 1:100
+    if params[:exp_trial] == "Y"
+        nagents = 100
+    else
+        nagents = nrow(params[:agent_attributes])
+    end
+    for id in 1:nagents
         p = Person_Sim(id, 1, params[:agent_attributes][id,1],
                                 params[:agent_attributes][id,2], 
                                 params[:agent_attributes][id,3], 
@@ -214,7 +228,8 @@ function initialize(net,
                                 params[:agent_attributes][id,8], 
                                 params[:agent_attributes][id,9],
                                 params[:agent_attributes][id,10],
-                                params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity])
+                                params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
+                                params[:experienced_plans_dict])
                                 
         add_agent_single!(p, model)
     end
@@ -250,7 +265,6 @@ function initialize(net,
         end
     end
 
-
     # push cnts to first entry in history of each disease states
     push_state_count_to_history!(model)
     return model
@@ -261,6 +275,7 @@ function model_step!(model)
     # push disease state counts for current (ending) iteration to respective history. 
     push_state_count_to_history!(model)
 
+    model.timer += Dates.Second(1)
 end
 
 
@@ -281,63 +296,64 @@ end
 
     Transitions agents from one disease state to another.
 """
+
 function agent_step!(person, model)
+
+    timer = model.timer
+
     
-    iteration = abmtime(model) + 1 #Such that iteration 0 coincides with 1st line of data frame
-    maxTemp = params[:temperature][iteration, "TX"]
-    # if affected
-    if person.health_status == 2
-        if rand() <= model.recovery_rate #Agents recover with a probability of recovery_rate
-            person.health_status = 0
-            person.days_exposed = -1
-            model.cnt_affected -= 1
-            model.cnt_susceptible += 1
-        end
-    end
 
-    # if exposed
-    if person.health_status == 1
-        # E -> S
-        if params[:threshold_temp] <= maxTemp
-            person.days_exposed += 1
-        end
-
-        # E -> I
-        affected_chance = calc_affected_chance(model, person)        
-        if person.days_exposed == model.days_necessary_exposure
-            if rand() <= affected_chance
-                person.health_status = 2
-                model.cnt_exposed -= 1
-                model.cnt_affected += 1
-            else
-                person.health_status = 0
-                model.cnt_exposed -= 1
-                model.cnt_susceptible += 1
-                person.days_exposed = 0
-            end
-        end
-    end
-
-    # if susceptible
-    if person.health_status == 0 
-        if person.days_exposed == 0
-            if params[:threshold_temp] <= maxTemp
-                person.health_status = 1 # change to exposed
-                model.cnt_exposed += 1
-                model.cnt_susceptible -= 1
-            end
-        elseif person.days_exposed == -1
-            person.days_exposed += 1
-        end
-    end
 end
 
-"""
-    calc_affected_chance(model, person)
 
-    Calculates chance of becoming affected.
-"""
-function calc_affected_chance(model, person)
-    inf_chance = person.not_home_time*params[:base_susceptibility]
-    return inf_chance
-end
+# function agent_step!(person, model)
+    
+#     iteration = abmtime(model) + 1 #Such that iteration 0 coincides with 1st line of data frame
+#     maxTemp = params[:temperature][iteration, "TX"]
+#     # if affected
+#     if person.health_status == 2
+#         if rand() <= model.recovery_rate #Agents recover with a probability of recovery_rate
+#             person.health_status = 0
+#             person.days_exposed = -1
+#             model.cnt_affected -= 1
+#             model.cnt_susceptible += 1
+#         end
+#     end
+
+#     # if exposed
+#     if person.health_status == 1
+#         # E -> S
+#         if params[:threshold_temp] <= maxTemp
+#             person.days_exposed += 1
+#         end
+
+#         # E -> I
+#         affected_chance = calc_affected_chance(model, person)        
+#         if person.days_exposed == model.days_necessary_exposure
+#             if rand() <= affected_chance
+#                 person.health_status = 2
+#                 model.cnt_exposed -= 1
+#                 model.cnt_affected += 1
+#             else
+#                 person.health_status = 0
+#                 model.cnt_exposed -= 1
+#                 model.cnt_susceptible += 1
+#                 person.days_exposed = 0
+#             end
+#         end
+#     end
+
+#     # if susceptible
+#     if person.health_status == 0 
+#         if person.days_exposed == 0
+#             if params[:threshold_temp] <= maxTemp
+#                 person.health_status = 1 # change to exposed
+#                 model.cnt_exposed += 1
+#                 model.cnt_susceptible -= 1
+#             end
+#         elseif person.days_exposed == -1
+#             person.days_exposed += 1
+#         end
+#     end
+# end
+
