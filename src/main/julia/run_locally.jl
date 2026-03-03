@@ -40,7 +40,8 @@ params = Dict(
     :output_folder => missing,
     :experienced_plans_dict => exp_plans_dict,
     :exp_trial => "Y", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
-    :heat_time_module => "24_hours" #Options: "24_hours", "out_of_home_duration", "activity_based"
+    :heat_time_module => "24_hours", #Options: "24_hours", "out_of_home_duration", "activity_based"
+    :affection_age_dependent => "Y" #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
 )
 
 model = run_model(params)
