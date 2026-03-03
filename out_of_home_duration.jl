@@ -25,14 +25,14 @@ end
     # Arguments
     - activities::Dict. Nested dictionary where each key is represents an agent and each value is a dictionary containing the agent's activities.
 """
-function out_of_home_duration(activities::Dict)
-    earliest = isempty(start_times) ? Time(0, 0, 0) : minimum(start_times)
-    total_seconds += Dates.value(Second(earliest - Time(0, 0, 0)))
-    total_seconds = 0
+function out_of_home_duration(activities_dictionary::Dict)
     start_times = [parse_time(val["start_time"]) for (key, val) in activities_dictionary if haskey(val, "start_time")]
-   
+    earliest = isempty(start_times) ? Time(0, 0, 0) : minimum(start_times)
+    total_seconds = 0
+    total_seconds += Dates.value(Second(earliest - Time(0, 0, 0)))
+
     
-    for (key, val) in activities
+    for (key, val) in activities_dictionary
         if startswith(key, "home")
             start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
             end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
