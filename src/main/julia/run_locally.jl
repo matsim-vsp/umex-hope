@@ -37,7 +37,10 @@ params = Dict(
     :temperature_file => temperature_file,
     :temperature => temperature,
     :threshold_temp => 20,
-    :output_folder => missing
+    :output_folder => missing,
+    :experienced_plans_dict => exp_plans_dict,
+    :exp_trial => "Y", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
+    :heat_time_module => "24_hours" #Options: "24_hours", "out_of_home_duration", "activity_based"
 )
 
 model = run_model(params)
