@@ -28,6 +28,7 @@ function experienced_plans_reader(file_path)
     # Build df/dictionary person by person
     rows = []
     activities_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
+    legs_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
 
     for person in persons
         row = Dict{String, Any}()
@@ -59,6 +60,41 @@ function experienced_plans_reader(file_path)
 
             activities_dictionary[person["id"]] = inner_dict
         end
+
+        prefixes = ["freight", "goodsTraffic", "commercialPersonTraffic"]
+        if !any(prefix -> startswith(person["id"], prefix), prefixes)
+            legs = findall(".//leg", person)
+            
+            inner_dict_legs = Dict{String, Dict{Any, Any}}()
+            for leg in legs
+                inner_dict_legs[leg["mode"]] = Dict(attr.name => attr.content for attr in eachattribute(leg))
+                # SP 04/03/26: We are checking if start_time < 24h. Otherwise the Dates package is giving me trouble. This is probably not a permanent solution and may require fixing
+                try
+                    inner_dict_legs[leg["mode"]]["start_time"] = Dates.format(Time(pop!(inner_dict_legs[leg["mode"]], "dep_time")), "HH:MM:SS")
+                catch e
+                    if isa(e, ArgumentError)
+                        delete!(inner_dict_legs[leg["mode"]], "start_time")
+                    end
+                end
+                if haskey(inner_dict_legs[leg["mode"]], "start_time")
+                    #SP 04/03/26: Again, we are checking if end_time < 24h. If this is true, then the end_time is not added. May cause entries, where there exists a start_time, but no end_time
+                    try
+                        t_start = Time(inner_dict_legs[leg["mode"]]["start_time"])
+                        t_trav = Time(inner_dict_legs[leg["mode"]]["trav_time"])
+
+                        result = t_start + Second(hour(t_trav) * 3600 + minute(t_trav) * 60 + second(t_trav))
+                        inner_dict_legs[leg["mode"]]["end_time"] = Dates.format(result, "HH:MM:SS")
+                    catch e
+                        if isa(e, ArgumentError)
+                            delete!(inner_dict_legs[leg["mode"]], "end_time")
+                            delete!(inner_dict_legs[leg["mode"]], "start_time")
+                        end
+                    end
+                end
+            end 
+
+        legs_dictionary[person["id"]] = inner_dict_legs
+        end
     end
 
     for (person_id, nested_dict) in activities_dictionary
@@ -79,6 +115,6 @@ function experienced_plans_reader(file_path)
     df = select(df, :id, :carAvail, :sex, :SNZ_hhSize, :SNZ_hhIncome, :income, :SNZ_gender, :home_x, :home_y, :SNZ_age)
     df = filter(row -> !occursin("goodsTraffic", row.id) && !occursin("freight", row.id) && !occursin("commercial", row.id), df)
 
-    return df, activities_dictionary
+    return df, activities_dictionary, legs_dictionary
 
 end
