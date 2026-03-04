@@ -61,6 +61,7 @@ function experienced_plans_reader(file_path)
             activities_dictionary[person["id"]] = inner_dict
         end
 
+        # Also reading in legs, not just activities. 04/03: TODO Add start_link and end_link to dictionary
         prefixes = ["freight", "goodsTraffic", "commercialPersonTraffic"]
         if !any(prefix -> startswith(person["id"], prefix), prefixes)
             legs = findall(".//leg", person)
@@ -97,6 +98,7 @@ function experienced_plans_reader(file_path)
         end
     end
 
+    # Adding legs dictionary to activities dictionary
     for (person_id, nested_dict) in activities_dictionary
         for (key, val) in nested_dict
             if startswith(key, "home")
@@ -110,11 +112,19 @@ function experienced_plans_reader(file_path)
         end
     end
 
+    for (key, value) in legs_dictionary
+        if haskey(activities_dictionary, key)
+            merge!(activities_dictionary[key], value)
+        else
+            activities_dictionary[key] = value
+        end
+    end
+
     # Build the DataFrame from the rows
     df = DataFrame(rows)
     df = select(df, :id, :carAvail, :sex, :SNZ_hhSize, :SNZ_hhIncome, :income, :SNZ_gender, :home_x, :home_y, :SNZ_age)
     df = filter(row -> !occursin("goodsTraffic", row.id) && !occursin("freight", row.id) && !occursin("commercial", row.id), df)
 
-    return df, activities_dictionary, legs_dictionary
+    return df, activities_dictionary
 
 end
