@@ -51,7 +51,7 @@ function run_model(params)
         params_subset = filter(p -> p.first != :network, params_subset)
         params_subset = filter(p -> p.first != :temperature, params_subset)
         params_subset = filter(p -> p.first != :experienced_plans_dict, params_subset)
-        CSV.write(joinpath(output_path, "_info.csv"), params_subset)
+        CSV.write(joinpath(output_path, "input_params.csv"), params_subset)
        
         # empty dictionary, which will be filled with respective stat (e.g. susceptible count) for each model run (all iterations, rows of matrix) for each seed (columns of matrix)
         results = Dict(
@@ -118,11 +118,56 @@ function run_model(params)
         end
 
         df = DataFrame(
+            timer = model.hist_timer,
             susceptible = model.hist_susceptible,
             exposed = model.hist_exposed,
             affected = model.hist_affected
         )
-        CSV.write(joinpath(output_path, "SusExpAffected.csv"), df)
+        CSV.write(joinpath(output_path, "SusceptibleExposedAffected.csv"), df)
+
+        df_diffbyage = DataFrame(
+            timer = model.hist_timer,
+            susceptible0010 = model.hist_susceptible0010,
+            exposed0010 = model.hist_exposed0010,
+            affected0010 = model.hist_affected0010,
+
+            susceptible1120 = model.hist_susceptible1120,
+            exposed1120 = model.hist_exposed1120,
+            affected1120 = model.hist_affected1120,
+
+            susceptible2130 = model.hist_susceptible2130,
+            exposed2130 = model.hist_exposed2130,
+            affected2130 = model.hist_affected2130,
+
+            susceptible3140 = model.hist_susceptible3140,
+            exposed3140 = model.hist_exposed3140,
+            affected3140 = model.hist_affected3140,
+
+            susceptible4150 = model.hist_susceptible4150,
+            exposed4150 = model.hist_exposed4150,
+            affected4150 = model.hist_affected4150,
+
+            susceptible5160 = model.hist_susceptible5160,
+            exposed5160 = model.hist_exposed5160,
+            affected5160 = model.hist_affected5160,
+
+            susceptible6170 = model.hist_susceptible6170,
+            exposed6170 = model.hist_exposed6170,
+            affected6170 = model.hist_affected6170,
+
+            susceptible7180 = model.hist_susceptible7180,
+            exposed7180 = model.hist_exposed7180,
+            affected7180 = model.hist_affected7180,
+
+            susceptible8190 = model.hist_susceptible8190,
+            exposed8190 = model.hist_exposed8190,
+            affected8190 = model.hist_affected8190,
+
+            susceptible91inf = model.hist_susceptible91inf,
+            exposed91inf = model.hist_exposed91inf,
+            affected91inf = model.hist_affected91inf
+        )
+        CSV.write(joinpath(output_path, "SusceptibleExposedAffected_diffbyage.csv"), df_diffbyage)
 
         return model
     end
@@ -194,12 +239,80 @@ function initialize(net,
         :cnt_exposed => 0,
         :cnt_affected => 0,
 
+        :cnt_susceptible0010 => 0,
+        :cnt_susceptible1120 => 0,
+        :cnt_susceptible2130 => 0,
+        :cnt_susceptible3140 => 0,
+        :cnt_susceptible4150 => 0,
+        :cnt_susceptible5160 => 0,
+        :cnt_susceptible6170 => 0,
+        :cnt_susceptible7180 => 0,
+        :cnt_susceptible8190 => 0,
+        :cnt_susceptible91inf => 0,
+
+        :cnt_exposed0010 => 0,
+        :cnt_exposed1120 => 0,
+        :cnt_exposed2130 => 0,
+        :cnt_exposed3140 => 0,
+        :cnt_exposed4150 => 0,
+        :cnt_exposed5160 => 0,
+        :cnt_exposed6170 => 0,
+        :cnt_exposed7180 => 0,
+        :cnt_exposed8190 => 0,
+        :cnt_exposed91inf => 0,
+
+        :cnt_affected0010 => 0,
+        :cnt_affected1120 => 0,
+        :cnt_affected2130 => 0,
+        :cnt_affected3140 => 0,
+        :cnt_affected4150 => 0,
+        :cnt_affected5160 => 0,
+        :cnt_affected6170 => 0,
+        :cnt_affected7180 => 0,
+        :cnt_affected8190 => 0,
+        :cnt_affected91inf => 0,
+
         #history of count for each iteration
+        :hist_timer => [],
         :hist_susceptible => [],
         :hist_exposed => [],
         :hist_affected => [],
+
+        :hist_susceptible0010 => [],
+        :hist_susceptible1120 => [],
+        :hist_susceptible2130 => [],
+        :hist_susceptible3140 => [],
+        :hist_susceptible4150 => [],
+        :hist_susceptible5160 => [],
+        :hist_susceptible6170 => [],
+        :hist_susceptible7180 => [],
+        :hist_susceptible8190 => [],
+        :hist_susceptible91inf => [],
+
+        :hist_exposed0010 => [],
+        :hist_exposed1120 => [],
+        :hist_exposed2130 => [],
+        :hist_exposed3140 => [],
+        :hist_exposed4150 => [],
+        :hist_exposed5160 => [],
+        :hist_exposed6170 => [],
+        :hist_exposed7180 => [],
+        :hist_exposed8190 => [],
+        :hist_exposed91inf => [],
+
+        :hist_affected0010 => [],
+        :hist_affected1120 => [],
+        :hist_affected2130 => [],
+        :hist_affected3140 => [],
+        :hist_affected4150 => [],
+        :hist_affected5160 => [],
+        :hist_affected6170 => [],
+        :hist_affected7180 => [],
+        :hist_affected8190 => [],
+        :hist_affected91inf => [],
+
         #starting time, start at midnight
-        :timer => Dates.Time("00:00:00"),
+        :timer => DateTime(2024, 1, 15, 00, 00), #TODO: Need to figure out starting date
         :exp_trial => exp_trial
     )
 
@@ -243,10 +356,73 @@ function initialize(net,
     for agent in allagents(model)
         if agent.health_status == 0
             model.cnt_susceptible += 1
+            if agent.SNZ_age <= 10
+                model.cnt_susceptible0010 += 1
+            elseif agent.SNZ_age <= 20 && agent.SNZ_age > 10
+                model.cnt_susceptible1120 += 1
+            elseif agent.SNZ_age <= 30 && agent.SNZ_age > 20
+                model.cnt_susceptible2130 += 1
+            elseif agent.SNZ_age <= 40 && agent.SNZ_age > 30
+                model.cnt_susceptible3140 += 1
+            elseif agent.SNZ_age <= 50 && agent.SNZ_age > 40
+                model.cnt_susceptible4150 += 1
+            elseif agent.SNZ_age <= 60 && agent.SNZ_age > 50
+                model.cnt_susceptible5160 += 1
+            elseif agent.SNZ_age <= 70 && agent.SNZ_age > 60
+                model.cnt_susceptible6170 += 1
+            elseif agent.SNZ_age <= 80 && agent.SNZ_age > 70
+                model.cnt_susceptible7180 += 1
+            elseif agent.SNZ_age <= 90 && agent.SNZ_age > 80
+                model.cnt_susceptible8190 += 1
+            elseif agent.SNZ_age > 90
+                model.cnt_susceptible91inf += 1 
+            end
         elseif agent.health_status == 1
             model.cnt_exposed += 1
+            if agent.SNZ_age <= 10
+                model.cnt_expoed0010 += 1
+            elseif agent.SNZ_age <= 20 && agent.SNZ_age > 10
+                model.cnt_exposed1120 += 1
+            elseif agent.SNZ_age <= 30 && agent.SNZ_age > 20
+                model.cnt_exposed02130 += 1
+            elseif agent.SNZ_age <= 40 && agent.SNZ_age > 30
+                model.cnt_exposed3140 += 1
+            elseif agent.SNZ_age <= 50 && agent.SNZ_age > 40
+                model.cnt_exposed4150 += 1
+            elseif agent.SNZ_age <= 60 && agent.SNZ_age > 50
+                model.cnt_exposed5160 += 1
+            elseif agent.SNZ_age <= 70 && agent.SNZ_age > 60
+                model.cnt_exposed6170 += 1
+            elseif agent.SNZ_age <= 80 && agent.SNZ_age > 70
+                model.cnt_exposed7180 += 1
+            elseif agent.SNZ_age <= 90 && agent.SNZ_age > 80
+                model.cnt_exposed8190 += 1
+            elseif agent.SNZ_age > 90
+                model.cnt_exposed91inf += 1
+            end
         elseif agent.health_status == 2
             model.cnt_affected += 1
+            if agent.SNZ_age <= 10
+                model.cnt_affected0010 += 1
+            elseif agent.SNZ_age <= 20 && agent.SNZ_age > 10
+                model.cnt_affected1120 += 1
+            elseif agent.SNZ_age <= 30 && agent.SNZ_age > 20
+                model.cnt_affected02130 += 1
+            elseif agent.SNZ_age <= 40 && agent.SNZ_age > 30
+                model.cnt_affected3140 += 1
+            elseif agent.SNZ_age <= 50 && agent.SNZ_age > 40
+                model.cnt_affected4150 += 1
+            elseif agent.SNZ_age <= 60 && agent.SNZ_age > 50
+                model.cnt_affected5160 += 1
+            elseif agent.SNZ_age <= 70 && agent.SNZ_age > 60
+                model.cnt_affected6170 += 1
+            elseif agent.SNZ_age <= 80 && agent.SNZ_age > 70
+                model.cnt_affected7180 += 1
+            elseif agent.SNZ_age <= 90 && agent.SNZ_age > 80
+                model.cnt_affected8190 += 1
+            elseif agent.SNZ_age > 90
+                model.cnt_affected91inf += 1
+            end
         else
             throw(DomainError)
         end
@@ -292,7 +468,7 @@ end
 function model_step!(model)
     # push disease state counts for current (ending) iteration to respective history. 
     push_state_count_to_history!(model)
-    model.timer += Dates.Second(1)
+    model.timer += Dates.Day(1)
 end
 
 
@@ -302,9 +478,43 @@ end
     Updates disease state histories with disease state counts for current iteration.
 """
 function push_state_count_to_history!(model)
+    push!(model.hist_timer, model.timer)
     push!(model.hist_susceptible, model.cnt_susceptible)
     push!(model.hist_exposed, model.cnt_exposed)
     push!(model.hist_affected, model.cnt_affected)
+
+    push!(model.hist_susceptible0010, model.cnt_susceptible0010)
+    push!(model.hist_susceptible1120, model.cnt_susceptible1120)
+    push!(model.hist_susceptible2130, model.cnt_susceptible2130)
+    push!(model.hist_susceptible3140, model.cnt_susceptible3140)
+    push!(model.hist_susceptible4150, model.cnt_susceptible4150)
+    push!(model.hist_susceptible5160, model.cnt_susceptible5160)
+    push!(model.hist_susceptible6170, model.cnt_susceptible6170)
+    push!(model.hist_susceptible7180, model.cnt_susceptible7180)
+    push!(model.hist_susceptible8190, model.cnt_susceptible8190)
+    push!(model.hist_susceptible91inf, model.cnt_susceptible91inf)
+
+    push!(model.hist_exposed0010, model.cnt_exposed0010)
+    push!(model.hist_exposed1120, model.cnt_exposed1120)
+    push!(model.hist_exposed2130, model.cnt_exposed2130)
+    push!(model.hist_exposed3140, model.cnt_exposed3140)
+    push!(model.hist_exposed4150, model.cnt_exposed4150)
+    push!(model.hist_exposed5160, model.cnt_exposed5160)
+    push!(model.hist_exposed6170, model.cnt_exposed6170)
+    push!(model.hist_exposed7180, model.cnt_exposed7180)
+    push!(model.hist_exposed8190, model.cnt_exposed8190)
+
+    push!(model.hist_exposed91inf, model.cnt_exposed91inf)
+    push!(model.hist_affected0010, model.cnt_affected0010)
+    push!(model.hist_affected1120, model.cnt_affected1120)
+    push!(model.hist_affected2130, model.cnt_affected2130)
+    push!(model.hist_affected3140, model.cnt_affected3140)
+    push!(model.hist_affected4150, model.cnt_affected4150)
+    push!(model.hist_affected5160, model.cnt_affected5160)
+    push!(model.hist_affected6170, model.cnt_affected6170)
+    push!(model.hist_affected7180, model.cnt_affected7180)
+    push!(model.hist_affected8190, model.cnt_affected8190)
+    push!(model.hist_affected91inf, model.cnt_affected91inf)
 end
 
 """
