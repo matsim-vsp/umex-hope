@@ -486,19 +486,6 @@ function initialize(net,
         end
     end
 
-    #set affection chance according to age
-    if model.affection_age_dependent == "Y"
-        for agent in allagents(model)
-            if agent.SNZ_age <= 5
-                agent.affection_age_param = 2
-            elseif agent.SNZ_age <= 70
-                agent.affection_age_param = 1
-            elseif agent.SNZ_age > 70
-                agent.affection_age_param = 2
-            end
-        end
-    end
-
     # push cnts to first entry in history of each disease states
     push_state_count_to_history!(model)
     return model
