@@ -4,19 +4,19 @@ function postprocessing(output_path)
 
     output_path = string("./", output_path)
 
+    # SUSCEPTIBLE, EXPOSED, AFFECTED OVER TIME
     # Read the CSV of Susceptible, Exposed, Affected
     df = CSV.read(string(output_path, "/SusceptibleExposedAffected.csv"), DataFrame)
     # Create the line plot
-
     StatsPlots.plot(df.timer, df.susceptible, label="Susceptible", seriestype=:line, linewidth=2, color =:steelblue, xlabel="Time", ylabel="Count", title="Susceptible, Exposed, and Affected over Time", legend_title = "")
     StatsPlots.plot!(df.timer, df.exposed,    label="Exposed",  seriestype=:line, linewidth=2, color =:orange)
     StatsPlots.plot!(df.timer, df.affected,   label="Affected",  seriestype=:line, linewidth=2, color =:crimson)
     savefig(string(output_path, "/SusceptibleExposedAffected.pdf"))
 
+    # AFFECTED BY AGE OVER TIME
     # Read the CSV of Susceptible, Exposed, Affected by age
     df_byage = CSV.read(string(output_path, "/SusceptibleExposedAffected_diffbyage.csv"), DataFrame)
     # Create the line plot
-    # TODO: Right now: counts, need incidence
     StatsPlots.plot(df_byage.timer, df_byage.affected0010/df_byage.susceptible0010[1]*100000, label="00-10", seriestype=:line, linewidth=2, color =:steelblue, xlabel="Date", ylabel="Affected/100,000", title="Affected over Time", yformatter=:plain)
     StatsPlots.plot!(df_byage.timer, df_byage.affected1120/df_byage.susceptible1120[1]*100000, label="11-20", seriestype=:line, linewidth=2, color =:orange)
     StatsPlots.plot!(df_byage.timer, df_byage.affected2130/df_byage.susceptible2130[1]*100000, label="21-30", seriestype=:line, linewidth=2, color =:crimson)
