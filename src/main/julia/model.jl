@@ -61,7 +61,8 @@ function run_model(params)
             "susceptible" => [],
             "exposed" => [],
             "affected" => [], 
-            "affctedChance" => []
+            "affctedChance" => [],
+            "newlyaffected" => []
         )
 
         println("#######################")
@@ -96,6 +97,7 @@ function run_model(params)
             push!(results["susceptible"], model.hist_susceptible)
             push!(results["exposed"], model.hist_exposed)
             push!(results["affected"], model.hist_affected)
+            push!(results["newlyaffected"], model.hist_newlyaffected)
 
         end
 
@@ -122,51 +124,63 @@ function run_model(params)
             timer = model.hist_timer,
             susceptible = model.hist_susceptible,
             exposed = model.hist_exposed,
-            affected = model.hist_affected
+            affected = model.hist_affected,
+            newlyaffected = model.hist_newlyaffected
         )
         CSV.write(joinpath(output_path, "SusceptibleExposedAffected.csv"), df)
+        push!(model.output_path, output_path)
 
         df_diffbyage = DataFrame(
             timer = model.hist_timer,
             susceptible0010 = model.hist_susceptible0010,
             exposed0010 = model.hist_exposed0010,
             affected0010 = model.hist_affected0010,
+            newlyaffected0010 = model.hist_newlyaffected0010,
 
             susceptible1120 = model.hist_susceptible1120,
             exposed1120 = model.hist_exposed1120,
             affected1120 = model.hist_affected1120,
+            newlyaffected1120 = model.hist_newlyaffected1120,
 
             susceptible2130 = model.hist_susceptible2130,
             exposed2130 = model.hist_exposed2130,
             affected2130 = model.hist_affected2130,
+            newlyaffected2130 = model.hist_newlyaffected2130,
 
             susceptible3140 = model.hist_susceptible3140,
             exposed3140 = model.hist_exposed3140,
             affected3140 = model.hist_affected3140,
+            newlyaffected3140 = model.hist_newlyaffected3140,
 
             susceptible4150 = model.hist_susceptible4150,
             exposed4150 = model.hist_exposed4150,
             affected4150 = model.hist_affected4150,
+            newlyaffected4150 = model.hist_newlyaffected4150,
 
             susceptible5160 = model.hist_susceptible5160,
             exposed5160 = model.hist_exposed5160,
             affected5160 = model.hist_affected5160,
+            newlyaffected5160 = model.hist_newlyaffected5160,
 
             susceptible6170 = model.hist_susceptible6170,
             exposed6170 = model.hist_exposed6170,
             affected6170 = model.hist_affected6170,
+            newlyaffected6170 = model.hist_newlyaffected6170,
 
             susceptible7180 = model.hist_susceptible7180,
             exposed7180 = model.hist_exposed7180,
             affected7180 = model.hist_affected7180,
+            newlyaffected7180 = model.hist_newlyaffected7180,
 
             susceptible8190 = model.hist_susceptible8190,
             exposed8190 = model.hist_exposed8190,
             affected8190 = model.hist_affected8190,
+            newlyaffected8190 = model.hist_newlyaffected8190,
 
             susceptible91inf = model.hist_susceptible91inf,
             exposed91inf = model.hist_exposed91inf,
-            affected91inf = model.hist_affected91inf
+            affected91inf = model.hist_affected91inf,
+            newlyaffected91inf = model.hist_newlyaffected91inf
         )
         CSV.write(joinpath(output_path, "SusceptibleExposedAffected_diffbyage.csv"), df_diffbyage)
 
@@ -239,6 +253,7 @@ function initialize(net,
         :cnt_susceptible => 0,
         :cnt_exposed => 0,
         :cnt_affected => 0,
+        :cnt_newlyaffected => 0,
 
         :cnt_susceptible0010 => 0,
         :cnt_susceptible1120 => 0,
@@ -273,11 +288,23 @@ function initialize(net,
         :cnt_affected8190 => 0,
         :cnt_affected91inf => 0,
 
+        :cnt_newlyaffected0010 => 0,
+        :cnt_newlyaffected1120 => 0,
+        :cnt_newlyaffected2130 => 0,
+        :cnt_newlyaffected3140 => 0,
+        :cnt_newlyaffected4150 => 0,
+        :cnt_newlyaffected5160 => 0,
+        :cnt_newlyaffected6170 => 0,
+        :cnt_newlyaffected7180 => 0,
+        :cnt_newlyaffected8190 => 0,
+        :cnt_newlyaffected91inf => 0,
+
         #history of count for each iteration
         :hist_timer => [],
         :hist_susceptible => [],
         :hist_exposed => [],
         :hist_affected => [],
+        :hist_newlyaffected => [],
 
         :hist_susceptible0010 => [],
         :hist_susceptible1120 => [],
@@ -312,9 +339,21 @@ function initialize(net,
         :hist_affected8190 => [],
         :hist_affected91inf => [],
 
+        :hist_newlyaffected0010 => [],
+        :hist_newlyaffected1120 => [],
+        :hist_newlyaffected2130 => [],
+        :hist_newlyaffected3140 => [],
+        :hist_newlyaffected4150 => [],
+        :hist_newlyaffected5160 => [],
+        :hist_newlyaffected6170 => [],
+        :hist_newlyaffected7180 => [],
+        :hist_newlyaffected8190 => [],
+        :hist_newlyaffected91inf => [],
+
         #starting time, start at midnight
         :timer => DateTime(2024, 1, 15, 00, 00), #TODO: Need to figure out starting date
-        :exp_trial => exp_trial
+        :exp_trial => exp_trial,
+        :output_path => []
     )
 
     # create random number generator
@@ -483,6 +522,7 @@ function push_state_count_to_history!(model)
     push!(model.hist_susceptible, model.cnt_susceptible)
     push!(model.hist_exposed, model.cnt_exposed)
     push!(model.hist_affected, model.cnt_affected)
+    push!(model.hist_newlyaffected, model.cnt_newlyaffected)
 
     push!(model.hist_susceptible0010, model.cnt_susceptible0010)
     push!(model.hist_susceptible1120, model.cnt_susceptible1120)
@@ -516,6 +556,17 @@ function push_state_count_to_history!(model)
     push!(model.hist_affected7180, model.cnt_affected7180)
     push!(model.hist_affected8190, model.cnt_affected8190)
     push!(model.hist_affected91inf, model.cnt_affected91inf)
+
+    push!(model.hist_newlyaffected0010, model.cnt_newlyaffected0010)
+    push!(model.hist_newlyaffected1120, model.cnt_newlyaffected1120)
+    push!(model.hist_newlyaffected2130, model.cnt_newlyaffected2130)
+    push!(model.hist_newlyaffected3140, model.cnt_newlyaffected3140)
+    push!(model.hist_newlyaffected4150, model.cnt_newlyaffected4150)
+    push!(model.hist_newlyaffected5160, model.cnt_newlyaffected5160)
+    push!(model.hist_newlyaffected6170, model.cnt_newlyaffected6170)
+    push!(model.hist_newlyaffected7180, model.cnt_newlyaffected7180)
+    push!(model.hist_newlyaffected8190, model.cnt_newlyaffected8190)
+    push!(model.hist_newlyaffected91inf, model.cnt_newlyaffected91inf)
 end
 
 """
@@ -530,6 +581,30 @@ function agent_step!(person, model)
     maxTemp = params[:temperature][iteration, "TX"]
     # if affected
     if person.health_status == 2
+        if model.cnt_newlyaffected > 0
+            model.cnt_newlyaffected -= 1
+            if person.SNZ_age <= 10
+                model.cnt_newlyaffected0010 -= 1
+            elseif person.SNZ_age > 10 && person.SNZ_age <= 20
+                model.cnt_newlyaffected1120 -= 1
+            elseif person.SNZ_age > 20 && person.SNZ_age <= 30
+                model.cnt_newlyaffected2130 -= 1
+            elseif person.SNZ_age > 30 && person.SNZ_age <= 40
+                model.cnt_newlyaffected3140 -= 1
+            elseif person.SNZ_age > 40 && person.SNZ_age <= 50
+                model.cnt_newlyaffected4150 -= 1
+            elseif person.SNZ_age > 50 && person.SNZ_age <= 60
+                model.cnt_newlyaffected5160 -= 1
+            elseif person.SNZ_age > 60 && person.SNZ_age <= 70
+                model.cnt_newlyaffected6170 -= 1
+            elseif person.SNZ_age > 70 && person.SNZ_age <= 80
+                model.cnt_newlyaffected7180 -= 1
+            elseif person.SNZ_age > 80 && person.SNZ_age <= 90
+                model.cnt_newlyaffected8190 -= 1
+            elseif person.SNZ_age > 90
+                model.cnt_newlyaffected91inf -= 1
+            end
+        end
         if rand() <= model.recovery_rate #Agents recover with a probability of recovery_rate
             person.health_status = 0
             person.days_exposed = -1
@@ -537,33 +612,43 @@ function agent_step!(person, model)
             model.cnt_susceptible += 1
             if person.SNZ_age <= 10
                 model.cnt_affected0010 -= 1
+                model.cnt_newlyaffected0010 -= 1
                 model.cnt_susceptible0010 += 1
             elseif person.SNZ_age > 10 && person.SNZ_age <= 20
                 model.cnt_affected1120 -= 1
+                model.cnt_newlyaffected1120 -= 1
                 model.cnt_susceptible1120 += 1  
             elseif person.SNZ_age > 20 && person.SNZ_age <= 30
                 model.cnt_affected2130 -= 1
+                model.cnt_newlyaffected2130 -= 1
                 model.cnt_susceptible2130 += 1   
             elseif person.SNZ_age > 30 && person.SNZ_age <= 40
                 model.cnt_affected3140 -= 1
+                model.cnt_newlyaffected3140 -= 1
                 model.cnt_susceptible3140 += 1  
             elseif person.SNZ_age > 40 && person.SNZ_age <= 50
                 model.cnt_affected4150 -= 1
+                model.cnt_newlyaffected4150 -= 1
                 model.cnt_susceptible4150 += 1  
             elseif person.SNZ_age > 50 && person.SNZ_age <= 60
                 model.cnt_affected5160 -= 1
+                model.cnt_newlyaffected5160 -= 1
                 model.cnt_susceptible5160 += 1 
             elseif person.SNZ_age > 60 && person.SNZ_age <= 70
                 model.cnt_affected6170 -= 1
+                model.cnt_newlyaffected6170 -= 1
                 model.cnt_susceptible6170 += 1  
             elseif person.SNZ_age > 70 && person.SNZ_age <= 80
                 model.cnt_affected7180 -= 1
+                model.cnt_newlyaffected7180 -= 1
                 model.cnt_susceptible7180 += 1     
             elseif person.SNZ_age > 80 && person.SNZ_age <= 90
                 model.cnt_affected8190 -= 1
+                model.cnt_newlyaffected8190 -= 1
                 model.cnt_susceptible8190 += 1  
             elseif person.SNZ_age > 90 
                 model.cnt_affected91inf -= 1
+                model.cnt_newlyaffected91inf -= 1
                 model.cnt_susceptible91inf += 1    
             end        
         end
@@ -583,36 +668,47 @@ function agent_step!(person, model)
                 person.health_status = 2
                 model.cnt_exposed -= 1
                 model.cnt_affected += 1
+                model.cnt_newlyaffected += 1
                 if person.SNZ_age <= 10
                     model.cnt_exposed0010 -= 1
                     model.cnt_affected0010 += 1
+                    model.cnt_newlyaffected0010 += 1
                 elseif person.SNZ_age > 10 && person.SNZ_age <= 20
                     model.cnt_exposed1120 -= 1
                     model.cnt_affected1120 += 1
+                    model.cnt_newlyaffected1120 += 1
                 elseif person.SNZ_age > 20 && person.SNZ_age <= 30
                     model.cnt_exposed2130 -= 1
                     model.cnt_affected2130 += 1
+                    model.cnt_newlyaffected2130 += 1
                 elseif person.SNZ_age > 30 && person.SNZ_age <= 40
                     model.cnt_exposed3140 -= 1
                     model.cnt_affected3140 += 1
+                    model.cnt_newlyaffected3140 += 1
                 elseif person.SNZ_age > 40 && person.SNZ_age <= 50
                     model.cnt_exposed4150 -= 1
                     model.cnt_affected4150 += 1
+                    model.cnt_newlyaffected4150 += 1
                 elseif person.SNZ_age > 50 && person.SNZ_age <= 60
                     model.cnt_exposed5160 -= 1
                     model.cnt_affected5160 += 1
+                    model.cnt_newlyaffected5160 += 1
                 elseif person.SNZ_age > 60 && person.SNZ_age <= 70
                     model.cnt_exposed6170 -= 1
                     model.cnt_affected6170 += 1
+                    model.cnt_newlyaffected6170 += 1
                 elseif person.SNZ_age > 70 && person.SNZ_age <= 80
                     model.cnt_exposed7180 -= 1
                     model.cnt_affected7180 += 1
+                    model.cnt_newlyaffected7180 += 1
                 elseif person.SNZ_age > 80 && person.SNZ_age <= 90
                     model.cnt_exposed8190 -= 1
                     model.cnt_affected8190 += 1
+                    model.cnt_newlyaffected8190 += 1
                 elseif person.SNZ_age > 90
                     model.cnt_exposed91inf -= 1
                     model.cnt_affected91inf += 1
+                    model.cnt_newlyaffected91inf += 1
                 end
             else
                 person.health_status = 0
@@ -661,6 +757,38 @@ function agent_step!(person, model)
                 person.health_status = 1 # change to exposed
                 model.cnt_exposed += 1
                 model.cnt_susceptible -= 1
+
+                if person.SNZ_age <= 10
+                    model.cnt_exposed0010 += 1
+                    model.cnt_susceptible0010 -= 1
+                elseif person.SNZ_age > 10 && person.SNZ_age <= 20
+                    model.cnt_exposed1120 += 1
+                    model.cnt_susceptible1120 -= 1
+                elseif person.SNZ_age > 20 && person.SNZ_age <= 30
+                    model.cnt_exposed2130 += 1
+                    model.cnt_susceptible2130 -= 1
+                elseif person.SNZ_age > 30 && person.SNZ_age <= 40
+                    model.cnt_exposed3140 += 1
+                    model.cnt_susceptible3140 -= 1
+                elseif person.SNZ_age > 40 && person.SNZ_age <= 50
+                    model.cnt_exposed4150 += 1
+                    model.cnt_susceptible4150 -= 1
+                elseif person.SNZ_age > 50 && person.SNZ_age <= 60
+                    model.cnt_exposed5160 += 1
+                    model.cnt_susceptible5160 -= 1
+                elseif person.SNZ_age > 60 && person.SNZ_age <= 70
+                    model.cnt_exposed6170 += 1
+                    model.cnt_susceptible6170 -= 1
+                elseif person.SNZ_age > 70 && person.SNZ_age <= 80
+                    model.cnt_exposed7180 += 1
+                    model.cnt_susceptible7180 -= 1
+                elseif person.SNZ_age > 80 && person.SNZ_age <= 90
+                    model.cnt_exposed8190 += 1
+                    model.cnt_susceptible8190 -= 1
+                elseif person.SNZ_age > 90 
+                    model.cnt_exposed91inf += 1
+                    model.cnt_susceptible91inf -= 1
+                end
             end
         elseif person.days_exposed == -1
             person.days_exposed += 1
