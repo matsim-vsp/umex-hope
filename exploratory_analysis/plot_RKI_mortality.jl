@@ -1,10 +1,12 @@
 using XLSX, DataFrames, Plots, ColorSchemes, Measures
 
-Deaths_or_Incidence = "Incidence" #Alternative option: "Incidence"
+#Data stems from https://edoc.rki.de/handle/176904/11174
+#Alternatively access archive via https://www.rki.de/DE/Themen/Gesundheit-und-Gesellschaft/Gesundheitliche-Einflussfaktoren-A-Z/H/Hitze/Bericht_Hitzemortalitaet.html
 
-# Load the Excel file
+Deaths_or_Incidence = "Deaths" #Alternative option: "Incidence"
+
+# Read in RKI mortality excel file
 df = DataFrame(XLSX.readtable("./HitzebedingteMortalitaetRKI.xlsx", "Daten"))
-
 df.Geschaetzte_Anzahl_Sterbefaelle = parse.(Float64, string.(df.Geschaetzte_Anzahl_Sterbefaelle))
 df.Unteres_95_Praediktionsintervall = parse.(Float64, string.(df.Unteres_95_Praediktionsintervall))
 df.Oberes_95_Praediktionsintervall = parse.(Float64, string.(df.Oberes_95_Praediktionsintervall))
@@ -46,10 +48,19 @@ plots_list = []
 for yr in years
     df_yr = filter(row -> row.Jahr == yr, df)
 
+
+    if Deaths_or_Incidence == "Deaths"
+        ylabel = "Estimated deaths"
+    elseif Deaths_or_Incidence == "Incidence"
+        ylabel = "Estimated deaths per 100.000 inhabitants"
+    else
+       error("You entered an invalid parameter for Deaths_or_Incidence")
+    end
+
     p = plot(
         title = "Year $(Int(yr))",
         xlabel = "Calendar week",
-        ylabel = "Estimated deaths",
+        ylabel = ylabel,
         legend = false,
         titlefontsize = 9,
         labelfontsize = 7,
