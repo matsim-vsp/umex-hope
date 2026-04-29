@@ -1,3 +1,5 @@
+include("calc_dosis.jl")
+
 """
     calc_affected_chance(params, model, person)
 
@@ -17,9 +19,9 @@ function calc_affection_chance(params, model, person)
     end
 
     if params[:heat_time_module] == "24_hours"
-        inf_chance = 24*person.affection_age_param*params[:base_susceptibility]
+        inf_chance = calc_dosis(params,model,person)*person.affection_age_param*params[:base_susceptibility]
     elseif params[:heat_time_module] == "out_of_home_duration"
-        inf_chance = person.affection_age_param*person.not_home_time*params[:base_susceptibility]
+        inf_chance = calc_dosis(params,model,person)*person.affection_age_param*params[:base_susceptibility]
     elseif params[:heat_time_module] == "activity_based"
     #TODO
     end
