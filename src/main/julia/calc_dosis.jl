@@ -11,7 +11,7 @@ function calc_dosis(params, model, person)
         time_exposed = person.not_home_time
 
     elseif params[:heat_time_module] == "activity_based"
-        time_exposed = person.work_time + person.public_leisure_time + person.private_leisure_time + person_daycare_time + person.education_time + person_other_non_home_time + person_walk_time + person_car_time + person_pt_time + person_bike_time
+        time_exposed = person.work_time + person.public_leisure_time + person.private_leisure_time + person.education_time + person.other_non_home_time + person.walk_time + person.car_time + person.pt_time + person.bike_time
     end
 
 end

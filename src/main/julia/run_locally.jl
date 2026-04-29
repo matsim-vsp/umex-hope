@@ -4,6 +4,7 @@ include("../../../network_creation.jl")
 include("../../../temperature.jl")
 include("../../../experienced_plans.jl")
 include("../../../out_of_home_duration.jl")
+include("plot_singlescenario.jl")
 
 
 pop_file = "hannover-1pct.output_persons.csv"
@@ -21,8 +22,8 @@ agent_attr = leftjoin(agent_attr, out_of_home_duration_df, on = :person)
 params = Dict(
     :seeds => 1,
     :iterations => nrow(temperature),
-    :base_susceptibility => 0.4,
-    :recovery_rate => 0.2,
+    :base_susceptibility => 0.05,
+    :recovery_rate => 1,
     :days_necessary_exposure => 1,
     :agent_attributes => agent_attr,
     :health_status => 0,
@@ -45,3 +46,5 @@ params = Dict(
 )
 
 model = run_model(params)
+
+postprocessing(model.output_path[1])
