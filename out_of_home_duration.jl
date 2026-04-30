@@ -52,7 +52,7 @@ function process_all_agents(agents::Dict)
     
     for agent_id in keys(agents)
         time_str = out_of_home_duration(agents[agent_id])
-        push!(rows, (person=agent_id, home_time=time_str))
+        push!(rows, (person=agent_id, ooh_home_time=time_str))
     end
     
     return DataFrame(rows)

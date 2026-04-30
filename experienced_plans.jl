@@ -4,6 +4,8 @@ using LightXML
 using EzXML
 using Dates
 
+include("out_of_home_duration.jl")
+
 """
     experienced_plans_reader(file_path)
 
@@ -57,6 +59,23 @@ function experienced_plans_reader(file_path)
             for activity in activities
                 inner_dict[activity["type"]] = Dict(attr.name => attr.content for attr in eachattribute(activity))
             end 
+            
+            # Adding durations (in seconds) of activities
+            for (key, val) in inner_dict
+                    start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
+                    end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
+                    inner_dict[key]["duration"] = string(Dates.value(Second(end_t - start_t)))
+            end
+
+            #Change names of activities. E.g. work_36600 -> work
+            for key in collect(keys(inner_dict)) 
+                shortened_key = split(key, "_")[1]
+                if haskey(inner_dict, shortened_key)
+                    delete!(inner_dict, key)  # duplicate, remove it #TODO: NEEDS TO BE FIXED. TIMES SHOULD BE ADDED, NOT SECOND ONE REMOVED!!!
+                else
+                    inner_dict[shortened_key] = pop!(inner_dict, key)  # rename it
+                end
+            end
 
             activities_dictionary[person["id"]] = inner_dict
         end
@@ -91,6 +110,12 @@ function experienced_plans_reader(file_path)
                             delete!(inner_dict_legs[leg["mode"]], "start_time")
                         end
                     end
+                end
+
+                for (key, val) in inner_dict_legs
+                    start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
+                    end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
+                    inner_dict_legs[key]["duration"] = string(Dates.value(Second(end_t - start_t)))
                 end
             end 
 

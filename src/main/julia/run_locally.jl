@@ -8,7 +8,7 @@ include("plot_singlescenario.jl")
 
 
 pop_file = "hannover-1pct.output_persons.csv"
-agent_attr = population_reader(pop_file)
+#agent_attr = population_reader(pop_file)
 network_file = "hannover-1pct.output_network.xml"
 network = network_creation(network_file)
 trajectories_file = "path"
@@ -17,6 +17,24 @@ temperature = temperature_reader(temperature_file)
 exp_plans_file = "hannover-1pct.output_experienced_plans.xml"
 exp_plans_pop_df, exp_plans_dict = experienced_plans_reader(exp_plans_file)
 out_of_home_duration_df = process_all_agents(exp_plans_dict)
+
+#TODO: 04/30 For each agent add activity durations to agent_attr dictionary --> Takes a long time, so this is comment out and we instead read the agent_attr csv --> Needs to become preprocessing at some point
+# for (key,value) in exp_plans_dict
+#     all_activities =  keys(exp_plans_dict[key])
+#     #println(all_activities)
+#     # #Add a column for each activity
+#     for activity in all_activities
+#         agent_attr[!, activity] = [
+#             haskey(exp_plans_dict[person], activity) ? exp_plans_dict[person][activity]["duration"] : 0
+#             for person in agent_attr.person
+#         ]
+#     end
+# end
+
+#CSV.write("agent_attr.csv", agent_attr)
+
+agent_attr = CSV.read("agent_attr.csv", DataFrame)
+agent_attr.person = string.(agent_attr.person)
 agent_attr = leftjoin(agent_attr, out_of_home_duration_df, on = :person)
 
 params = Dict(

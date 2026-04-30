@@ -18,6 +18,15 @@ include("calc_affection_chance.jl")
     income::Float64
     sex::String
     not_home_time::Float64
+    # work_time::Float64
+    # public_leisure_time::Float64
+    # private_leisure_time::Float64
+    # education_time::Float64
+    # other_non_home_time::Float64
+    # walk_time::Float64
+    # car_time::Float64
+    # pt_time::Float64
+    # bike_time::Float64
     health_status::Int # 0: Susceptible; 1: Exposed; 2: Affected
     heat_exposure::Float64
     days_exposed :: Int
@@ -385,7 +394,8 @@ function initialize(net,
                                 params[:agent_attributes][id,7],
                                 params[:agent_attributes][id,8], 
                                 params[:agent_attributes][id,9],
-                                params[:agent_attributes][id,10],
+                                params[:agent_attributes][id,25],
+                                #0, 0, 0, 0, 0, 0, 0, 0, 0, #TODO: ADD ACTUAL TIMES HERE
                                 params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
                                 params[:experienced_plans_dict], 1)
         
