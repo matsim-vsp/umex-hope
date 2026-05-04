@@ -18,15 +18,21 @@ include("calc_affection_chance.jl")
     income::Float64
     sex::String
     not_home_time::Float64
-    # work_time::Float64
-    # public_leisure_time::Float64
-    # private_leisure_time::Float64
-    # education_time::Float64
-    # other_non_home_time::Float64
-    # walk_time::Float64
-    # car_time::Float64
-    # pt_time::Float64
-    # bike_time::Float64
+    home_time::Float64
+    education_time::Float64
+    errands_time::Float64
+    pt_time::Float64
+    bike_time::Float64
+    visit_time::Float64
+    shop_time::Float64
+    work_time::Float64
+    business_time::Float64
+    walk_time::Float64
+    leisure_time::Float64
+    car_time::Float64
+    accomp_time::Float64
+    ride_time::Float64
+    other_time::Float64
     health_status::Int # 0: Susceptible; 1: Exposed; 2: Affected
     heat_exposure::Float64
     days_exposed :: Int
@@ -394,8 +400,22 @@ function initialize(net,
                                 params[:agent_attributes][id,7],
                                 params[:agent_attributes][id,8], 
                                 params[:agent_attributes][id,9],
-                                params[:agent_attributes][id,25],
-                                #0, 0, 0, 0, 0, 0, 0, 0, 0, #TODO: ADD ACTUAL TIMES HERE
+                                params[:agent_attributes][id,10],
+                                params[:agent_attributes][id,11],
+                                params[:agent_attributes][id,12], 
+                                params[:agent_attributes][id,13], 
+                                params[:agent_attributes][id,14], 
+                                params[:agent_attributes][id,15], 
+                                params[:agent_attributes][id,16], 
+                                params[:agent_attributes][id,17],
+                                params[:agent_attributes][id,18], 
+                                params[:agent_attributes][id,19],
+                                params[:agent_attributes][id,20],
+                                params[:agent_attributes][id,21],
+                                params[:agent_attributes][id,22], 
+                                params[:agent_attributes][id,23], 
+                                params[:agent_attributes][id,24], 
+                                params[:agent_attributes][id,25], 
                                 params[:health_status], params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
                                 params[:experienced_plans_dict], 1)
         

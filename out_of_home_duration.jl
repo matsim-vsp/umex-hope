@@ -23,37 +23,33 @@ end
     Computes amount of time (in hours) an agent spends outside their home based on their activities.
 
     # Arguments
-    - activities::Dict. Nested dictionary where each key is represents an agent and each value is a dictionary containing the agent's activities.
+    - activities::Vector{Dict{String, String}}. List of dictionaries where each dictionary contains the attributes of an activity.
 """
-function out_of_home_duration(activities_dictionary::Dict)
-    start_times = [parse_time(val["start_time"]) for (key, val) in activities_dictionary if haskey(val, "start_time")]
+function out_of_home_duration(activities::Vector{Dict{String, String}})
+    start_times = [parse_time(val["start_time"]) for val in activities if haskey(val, "start_time")]
     earliest = isempty(start_times) ? Time(0, 0, 0) : minimum(start_times)
     total_seconds = 0
     total_seconds += Dates.value(Second(earliest - Time(0, 0, 0)))
 
-    
-    for (key, val) in activities_dictionary
-        if startswith(key, "home")
+    for val in activities
+        col = haskey(val, "type") ? val["type"] : haskey(val, "mode") ? val["mode"] : nothing
+        if !isnothing(col) && startswith(col, "home")
             start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
             end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
             total_seconds += Dates.value(Second(end_t - start_t))
         end
     end
-    
-    h = total_seconds ÷ 3600
-    m = (total_seconds % 3600) ÷ 60
-    s = total_seconds % 60
-    #return @sprintf("%02d:%02d:%02d", h, m, s)
-    return 24 - total_seconds/3600
+
+    return 24 - total_seconds / 3600
 end
 
 function process_all_agents(agents::Dict)
     rows = []
-    
+
     for agent_id in keys(agents)
         time_str = out_of_home_duration(agents[agent_id])
         push!(rows, (person=agent_id, ooh_home_time=time_str))
     end
-    
+
     return DataFrame(rows)
 end

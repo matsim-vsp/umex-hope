@@ -29,8 +29,11 @@ function experienced_plans_reader(file_path)
 
     # Build df/dictionary person by person
     rows = []
-    activities_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
-    legs_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
+    #activities_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
+    #activities_dictionary = Dict{String, Dict{String, Vector{Dict{String, String}}}}()
+    activities_dictionary = Dict{String, Vector{Dict{String, String}}}()
+    #legs_dictionary = Dict{String, Dict{String, Dict{String, String}}}()
+    legs_dictionary = Dict{String, Vector{Dict{String, String}}}()
 
     for person in persons
         row = Dict{String, Any}()
@@ -55,29 +58,44 @@ function experienced_plans_reader(file_path)
         if !any(prefix -> startswith(person["id"], prefix), prefixes)
             activities = findall(".//activity", person)
 
-            inner_dict = Dict{String, Dict{String, String}}()
+            #Each list is structured as follows
+            inner_list = Vector{Dict{String, String}}()
             for activity in activities
-                inner_dict[activity["type"]] = Dict(attr.name => attr.content for attr in eachattribute(activity))
-            end 
-            
-            # Adding durations (in seconds) of activities
-            for (key, val) in inner_dict
-                    start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
-                    end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
-                    inner_dict[key]["duration"] = string(Dates.value(Second(end_t - start_t)))
+                push!(inner_list, Dict(attr.name => attr.content for attr in eachattribute(activity)))
             end
 
-            #Change names of activities. E.g. work_36600 -> work
-            for key in collect(keys(inner_dict)) 
-                shortened_key = split(key, "_")[1]
-                if haskey(inner_dict, shortened_key)
-                    delete!(inner_dict, key)  # duplicate, remove it #TODO: NEEDS TO BE FIXED. TIMES SHOULD BE ADDED, NOT SECOND ONE REMOVED!!!
-                else
-                    inner_dict[shortened_key] = pop!(inner_dict, key)  # rename it
+            for val in inner_list
+                if !haskey(val, "start_time")
+                    val["start_time"] = "00:00:00"
                 end
             end
+            
+            # Adding durations (in seconds) of activities
+            for val in inner_list
+                start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
+                end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
+                val["duration"] = string(Dates.value(Second(end_t - start_t)))
+            end
 
-            activities_dictionary[person["id"]] = inner_dict
+            # Change names of activities. E.g. work_36600 -> work
+            for val in inner_list
+                val["type"] = split(val["type"], "_")[1]
+            end
+
+            # Remove duplicates by type, keeping the first occurrence #TODO: NEEDS TO BE FIXED. TIMES SHOULD BE ADDED, NOT SECOND ONE REMOVED!!!
+            #TODO: Apply sanity check. Do I now actually keep the second activity
+            # unique_types = Set{String}()
+            # filter!(val -> begin
+            #     t = val["type"]
+            #     if t in unique_types
+            #         false
+            #     else
+            #         push!(unique_types, t)
+            #         true
+            #     end
+            # end, inner_list)
+
+            activities_dictionary[person["id"]] = inner_list
         end
 
         # Also reading in legs, not just activities. 04/03: TODO Add start_link and end_link to dictionary
@@ -85,61 +103,64 @@ function experienced_plans_reader(file_path)
         if !any(prefix -> startswith(person["id"], prefix), prefixes)
             legs = findall(".//leg", person)
             
-            inner_dict_legs = Dict{String, Dict{Any, Any}}()
+            #inner_dict_legs = Dict{String, Dict{Any, Any}}()
+            inner_list_legs = Vector{Dict{String, String}}()
+
+            inner_list_legs = Vector{Dict{String, String}}()
+
             for leg in legs
-                inner_dict_legs[leg["mode"]] = Dict(attr.name => attr.content for attr in eachattribute(leg))
+                push!(inner_list_legs, Dict(attr.name => attr.content for attr in eachattribute(leg)))
+                val = last(inner_list_legs)  # reference to the just-added dict
+
                 # SP 04/03/26: We are checking if start_time < 24h. Otherwise the Dates package is giving me trouble. This is probably not a permanent solution and may require fixing
                 try
-                    inner_dict_legs[leg["mode"]]["start_time"] = Dates.format(Time(pop!(inner_dict_legs[leg["mode"]], "dep_time")), "HH:MM:SS")
+                    val["start_time"] = Dates.format(Time(pop!(val, "dep_time")), "HH:MM:SS")
                 catch e
                     if isa(e, ArgumentError)
-                        delete!(inner_dict_legs[leg["mode"]], "start_time")
+                        delete!(val, "start_time")
                     end
                 end
-                if haskey(inner_dict_legs[leg["mode"]], "start_time")
-                    #SP 04/03/26: Again, we are checking if end_time < 24h. If this is true, then the end_time is not added. May cause entries, where there exists a start_time, but no end_time
+
+                if haskey(val, "start_time")
+                    # SP 04/03/26: Again, we are checking if end_time < 24h. If this is true, then the end_time is not added. May cause entries, where there exists a start_time, but no end_time
                     try
-                        t_start = Time(inner_dict_legs[leg["mode"]]["start_time"])
-                        t_trav = Time(inner_dict_legs[leg["mode"]]["trav_time"])
+                        t_start = Time(val["start_time"])
+                        t_trav = Time(val["trav_time"])
 
                         result = t_start + Second(hour(t_trav) * 3600 + minute(t_trav) * 60 + second(t_trav))
-                        inner_dict_legs[leg["mode"]]["end_time"] = Dates.format(result, "HH:MM:SS")
+                        val["end_time"] = Dates.format(result, "HH:MM:SS")
                     catch e
                         if isa(e, ArgumentError)
-                            delete!(inner_dict_legs[leg["mode"]], "end_time")
-                            delete!(inner_dict_legs[leg["mode"]], "start_time")
+                            delete!(val, "end_time")
+                            delete!(val, "start_time")
                         end
                     end
                 end
 
-                for (key, val) in inner_dict_legs
-                    start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
-                    end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
-                    inner_dict_legs[key]["duration"] = string(Dates.value(Second(end_t - start_t)))
-                end
-            end 
+                # Adding durations (in seconds) of legs
+                start_t = haskey(val, "start_time") ? parse_time(val["start_time"]) : Time(0, 0, 0)
+                end_t = haskey(val, "end_time") ? parse_time(val["end_time"]) : Time(23, 59, 59)
+                val["duration"] = string(Dates.value(Second(end_t - start_t)))
+            end
 
-        legs_dictionary[person["id"]] = inner_dict_legs
+            legs_dictionary[person["id"]] = inner_list_legs
         end
     end
 
-    # Adding legs dictionary to activities dictionary
-    for (person_id, nested_dict) in activities_dictionary
-        for (key, val) in nested_dict
-            if startswith(key, "home")
-                if !haskey(nested_dict[key], "start_time")
-                    nested_dict[key]["start_time"] = "00:00:00"
-                end
-                if !haskey(nested_dict[key], "end_time")
-                    nested_dict[key]["end_time"] = "23:59:59"
-                end
+    # Adding default start/end times for home activities
+    for (person_id, inner_list) in activities_dictionary
+        for val in inner_list
+            if startswith(val["type"], "home")
+                get!(val, "start_time", "00:00:00")
+                get!(val, "end_time", "23:59:59")
             end
         end
     end
 
+    # Adding legs to activities dictionary
     for (key, value) in legs_dictionary
         if haskey(activities_dictionary, key)
-            merge!(activities_dictionary[key], value)
+            append!(activities_dictionary[key], value)
         else
             activities_dictionary[key] = value
         end
@@ -150,6 +171,44 @@ function experienced_plans_reader(file_path)
     df = select(df, :id, :carAvail, :sex, :SNZ_hhSize, :SNZ_hhIncome, :income, :SNZ_gender, :home_x, :home_y, :SNZ_age)
     df = filter(row -> !occursin("goodsTraffic", row.id) && !occursin("freight", row.id) && !occursin("commercial", row.id), df)
 
-    return df, activities_dictionary
+    # Build DataFrame from activities_dictionary
+    # Build DataFrame from activities_dictionary
+    rows = []
+    all_cols = Set{String}()
+
+    for (person_id, inner_list) in activities_dictionary
+        row = Dict{String, Any}()
+        row["person"] = person_id
+
+        for val in inner_list
+            col = haskey(val, "type") ? val["type"] : haskey(val, "mode") ? val["mode"] : nothing
+            if !isnothing(col) && haskey(val, "duration")
+                dur = parse(Int, val["duration"])
+                push!(all_cols, col)
+                if haskey(row, col)
+                    row[col] += dur
+                else
+                    row[col] = dur
+                end
+            end
+        end
+
+        push!(rows, row)
+    end
+
+    # Ensure all rows have all columns
+    for row in rows
+        for col in all_cols
+            if !haskey(row, col)
+                row[col] = 0
+            end
+        end
+    end
+
+    df_durations = DataFrame(rows)
+    df_durations = coalesce.(df_durations, 0)
+    df_durations = select(df_durations, Not(["bike interaction", "pt interaction", "ride interaction", "car interaction"]))
+
+    return df, activities_dictionary, df_durations
 
 end
