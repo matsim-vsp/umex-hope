@@ -1,12 +1,12 @@
-include("calc_dosis.jl")
+include("compute_dosis.jl")
 
 """
-    calc_affected_chance(params, model, person)
+    compute_affected_chance(params, model, person)
 
     Calculates chance of becoming affected.
 """
 
-function calc_affection_chance(params, model, person)
+function compute_affection_chance(params, model, person)
 
     if model.affection_age_dependent == "Y"
         if person.SNZ_age <= 70

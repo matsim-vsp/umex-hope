@@ -43,6 +43,14 @@ function out_of_home_duration(activities::Vector{Dict{String, String}})
     return 24 - total_seconds / 3600
 end
 
+"""
+    process_all_agents(agents::Dict)
+
+    Creation of data frame that contains amount of time (in hours) an agents spend outside their home based on their activities.
+
+    # Arguments
+    - agents::Dict.
+"""
 function process_all_agents(agents::Dict)
     rows = []
 
