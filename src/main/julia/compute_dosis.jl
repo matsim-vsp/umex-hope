@@ -1,5 +1,7 @@
 using DataFrames
 
+include("compute_mrt.jl")
+include("utci_prep.jl")
 include("utci.jl")
 
 thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", 
@@ -13,8 +15,8 @@ thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", 
     Calculates the cumulative UTCI exceedance for a single activitiy.
     Based on the work by Sadeghi et al (2021) https://doi.org/10.1016/j.buildenv.2021.107947
 """
-function compute_cumulative_UTCI_exceedance(temp, thresholds, person, activity)
-    compute_cumulative_UTCI_exceedance = (utci(temp) - thresholds[thresholds.activity .== String(activity), :uncomfortable][1]) * person.Symbol(activity, "_time")
+function compute_cumulative_UTCI_exceedance(airtemp, meanradianttemp, vel, rh, thresholds, person, activity)
+    compute_cumulative_UTCI_exceedance = (utci(airtemp, meanradianttemp, vel, rh) - thresholds[thresholds.activity .== String(activity), :uncomfortable][1]) * person.Symbol(activity, "_time")
 end
 
 """
