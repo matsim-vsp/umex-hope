@@ -97,6 +97,8 @@ function run_model(params)
             #   1) agent_step function is applied to each agent
             #   2) model_step function occurs at end of iteration
             step!(model, agent_step!, model_step!, params[:iterations])
+            # (I think that step! is defined in the "Agents" package.  It will get the model_step and agent_step methods from the
+            # model and then execute them.)
         end
 
 

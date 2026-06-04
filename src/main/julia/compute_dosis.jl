@@ -8,6 +8,7 @@ thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", 
                                     "leisure", "car", "accomp", "ride", "other"],
                         uncomfortable = [24, 24, 24, 24, 28, 25, 24, 24, 26, 26, 20, 22, 25, 25, 25, 24],
                         critical  = [26, 25, 26, 26, 35, 30, 26, 26, 30,30, 30, 26, 30, 30, 30, 26])
+# (I think that the above works in "vertical" direction.  E.g., for "not_home", the uncomfortable temperature is 24, and the critical temperature is 26.)
 
 """
     compute compute_cumulative_UTCI_exceedance(thresholds, person, activity)
@@ -32,7 +33,7 @@ function compute_dosis_for_activity_based_heat(temp, thresholds, person)
         dosis += compute_cumulative_UTCI_exceedance(temp, thresholds, person, Symbol(not_home))
     elseif params[:heat_time_module] == "activity_based"    
         for activity in thresholds.activity
-        dosis += compute_cumulative_UTCI_exceedance(temp, thresholds, person, activity)  
+            dosis += compute_cumulative_UTCI_exceedance(temp, thresholds, person, activity)
         end
     end
     return dosis
