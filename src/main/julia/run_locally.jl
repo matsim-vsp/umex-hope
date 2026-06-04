@@ -24,11 +24,12 @@ agent_attr = leftjoin(agent_attr, exp_plans_durations_df, on = :person)
 params = Dict(
     :seeds => 1,
     :iterations => nrow(temperature),
+    :disease => "heat", #Options: "heat", "covid", "rsv"
     :base_susceptibility => 0.05,
     :recovery_rate => 1,
     :days_necessary_exposure => 1,
     :agent_attributes => agent_attr,
-    :health_status => 0,
+    :health_status => "susceptible",
     :heat_exposure => 0, 
     :days_exposed => 0,
     :pregnancy => 0, 
