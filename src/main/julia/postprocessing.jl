@@ -8,8 +8,8 @@ function postprocessing(output_path)
     # Read the CSV of Susceptible, Exposed, Affected
     df = CSV.read(string(output_path, "/SusceptibleExposedAffected.csv"), DataFrame)
     # Create the line plot
-    @df df StatsPlots.plot(:timer, :count, group=:state,
-        xlabel = "Timer",
+    @df df StatsPlots.plot(:datetime, :count, group=:state,
+        xlabel = "Date",
         ylabel = "Count",
         title  = "Agent States Over Time",
         legend = :topright
@@ -24,10 +24,10 @@ function postprocessing(output_path)
 
     sub = filter(r -> r.state == "affected", df_byage)
 
-    @df sub StatsPlots.plot(:timer, :count, group=:age_label,
-            xlabel = "Timer",
+    @df sub StatsPlots.plot(:datetime, :count, group=:age_label,
+            xlabel = "Date",
             ylabel = "Count",
-            title  = "Newly Affected by Age Group",
+            title  = "Affected by Age Group",
             legend = :topright
     )
 
