@@ -99,6 +99,10 @@ function run_model(params)
             step!(model, agent_step!, model_step!, params[:iterations])
             # (I think that step! is defined in the "Agents" package.  It will get the model_step and agent_step methods from the
             # model and then execute them.)
+            # (Why that functions with exactly the above syntax is not clear to me.  I read as syntax step!(mode, function ), but I
+            # do not understand how one can (a) give two functions, and how/why the last arg is interpreted as params and not a
+            # function.)
+            # (--> step_standard has something that looks a bit similar and probably resolves this)
         end
 
 
