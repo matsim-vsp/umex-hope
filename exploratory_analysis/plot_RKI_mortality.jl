@@ -125,6 +125,7 @@ plot!(legend_plot, legend = :inside, legendfontsize = 7)
 
 # Combine all panels
 ncols = length(years)
+nrows = 1
 
 final_plot = plot(
     plots_list..., legend_plot,
