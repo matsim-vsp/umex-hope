@@ -1,3 +1,5 @@
+using Printf
+
 """
     utci(ta, tr, vel, rh) -> Float64
 

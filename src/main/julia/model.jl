@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(@__DIR__)
 using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
 
-#include("compute_affection_chance.jl")
+include("compute_affection_chance.jl")
 
 #This work partly recycles code from previous work https://github.com/matsim-vsp/epi-net-sim/blob/main/src/main/julia/model.jl
 
@@ -41,7 +41,7 @@ using Agents, Random, Graphs, DataFrames, Statistics, CSV, Dates
     pregnancy::Int64
     premorbidity::Int64
     experienced_plans_reader::Dict
-    affection_theta::Int64
+    affection_theta::Float64
 end
 
 """
@@ -57,7 +57,6 @@ function run_model(params)
         if ismissing(params[:output_folder])
             output_path = "data/" * replace(first(string(now()), 19), ":" => "")
             mkpath(output_path)
-
         else
             output_path = params[:output_folder]
         end
@@ -99,6 +98,7 @@ function run_model(params)
             step!(model, agent_step!, model_step!, params[:iterations])
         end
 
+        start_time = DateTime(2024, 12, 01, 12, 00)
 
         # Build the DataFrame from the dict
         df = DataFrame(
@@ -106,6 +106,7 @@ function run_model(params)
             age_low  = [b[1]     for (s, b) in keys(model.hist) for _ in eachindex(model.hist[(s,b)])],
             age_high = [b[2]     for (s, b) in keys(model.hist) for _ in eachindex(model.hist[(s,b)])],
             timer     = [i        for (s, b) in keys(model.hist) for i in eachindex(model.hist[(s,b)])],
+            datetime = [start_time + Dates.Day(i-1) for (s, b) in keys(model.hist) for i in eachindex(model.hist[(s,b)])],
             count    = [v        for (s, b) in keys(model.hist) for v in model.hist[(s,b)]]
         )
 
@@ -114,7 +115,7 @@ function run_model(params)
         push!(model.output_path, output_path)
 
         df_aggregated = combine(
-            groupby(df, [:state, :timer]),
+            groupby(df, [:state, :datetime]),
             :count => sum => :count
         )
 
@@ -254,7 +255,7 @@ function initialize(net,
         :days_necessary_exposure => days_necessary_exposure,
         :affection_age_dependent => affection_age_dependent,
         #starting time, start at midnight
-        :timer => DateTime(2024, 1, 15, 00, 00), #TODO: Need to figure out starting date
+        :timer => DateTime(2024, 12, 01, 12, 00), #TODO: Need to figure out starting date
         :exp_trial => exp_trial,
         :output_path => [],
         :hist => hist,
@@ -381,8 +382,8 @@ function agent_step!(person, model)
     if person.health_status == "susceptible"
 
         # S -> A
-        #affected_chance = compute_affection_chance(params, model, person)        
-        affected_chance = 0.3
+        affected_chance = compute_affection_chance(params, model, person)        
+        #affected_chance = 0.3
         if rand() <= affected_chance
             person.health_status = "affected"
         else

@@ -15,7 +15,7 @@ df_merged = leftjoin(df_merged,   df_mrt_renamed; on = :timestamp)
 select!(df_merged, :timestamp, :air_temperature_c, :relative_humidity_pct,
                   :wind_speed_ms, :Tmrt_C)
 
-df_merged = filter(row -> Time(row.timestamp) == Time(0, 0, 0), df_merged)
+df_merged = filter(row -> Time(row.timestamp) == Time(12, 0, 0), df_merged)
 
 println(first(df_merged, 5))
 println("\n$(nrow(df_merged)) rows, columns: $(names(df_merged))")

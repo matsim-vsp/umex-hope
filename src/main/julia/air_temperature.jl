@@ -52,5 +52,5 @@ close(zr)
 df_temp = parse_climate_data(csv_text)
 
 println("\nFirst 5 rows:")
-println(first(df, 5))
-println("\n$(nrow(df)) rows, columns: $(names(df))")
+println(first(df_temp, 5))
+println("\n$(nrow(df_temp)) rows, columns: $(names(df_temp))")

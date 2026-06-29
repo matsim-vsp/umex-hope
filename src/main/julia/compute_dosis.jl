@@ -1,7 +1,7 @@
 using DataFrames
 
-include("compute_mrt.jl")
-include("utci_prep.jl")
+#include("compute_mrt.jl")
+#include("utci_prep.jl")
 include("utci.jl")
 
 thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", 
@@ -16,7 +16,11 @@ thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", 
     Based on the work by Sadeghi et al (2021) https://doi.org/10.1016/j.buildenv.2021.107947
 """
 function compute_cumulative_UTCI_exceedance(airtemp, meanradianttemp, vel, rh, thresholds, person, activity)
-    compute_cumulative_UTCI_exceedance = (utci(airtemp, meanradianttemp, vel, rh) - thresholds[thresholds.activity .== String(activity), :uncomfortable][1]) * person.Symbol(activity, "_time")
+    if params[:heat_time_module] == "24_hours"
+        compute_cumulative_UTCI_exceedance = (utci(airtemp, meanradianttemp, vel, rh) - thresholds[thresholds.activity .== String(activity), :uncomfortable][1]) * 24
+    else
+        compute_cumulative_UTCI_exceedance = (utci(airtemp, meanradianttemp, vel, rh) - thresholds[thresholds.activity .== String(activity), :uncomfortable][1]) * getproperty(person, Symbol(activity, "_time"))
+    end
 end
 
 """
@@ -24,37 +28,42 @@ end
 
     Calculates heat dosis agent is exposed to over the course of the day.
 """
-function compute_dosis_for_activity_based_heat(temp, thresholds, person)
+function compute_dosis_for_activity_based_heat(params, thresholds, model, person)
     dosis = 0
+    df_merged = params[:df_merged]
+    air_temp = df_merged[df_merged.timestamp .== model.timer, :air_temperature_c][1]
+    mean_radiant_temp = df_merged[df_merged.timestamp .== model.timer, :Tmrt_C][1]
+    vel = df_merged[df_merged.timestamp .== model.timer, :wind_speed_ms][1]
+    rh = df_merged[df_merged.timestamp .== model.timer, :relative_humidity_pct][1]
     if params[:heat_time_module] == "24_hours"
-        dosis += 24 * avg_concentration #TODO: Should xx_concentration be a model parameter?
+        dosis += compute_cumulative_UTCI_exceedance(air_temp, mean_radiant_temp, vel, rh, thresholds, person, "not_home")
     elseif params[:heat_time_module] == "out_of_home_duration"
-        dosis += compute_cumulative_UTCI_exceedance(temp, thresholds, person, Symbol(not_home))
+        dosis += compute_cumulative_UTCI_exceedance(air_temp, mean_radiant_temp, vel, rh, thresholds, person, "not_home")
     elseif params[:heat_time_module] == "activity_based"    
         for activity in thresholds.activity
-        dosis += compute_cumulative_UTCI_exceedance(temp, thresholds, person, activity)  
+        dosis += compute_cumulative_UTCI_exceedance(air_temp, mean_radiant_temp, vel, rh, thresholds, person, activity)  
         end
     end
     return dosis
 end
 
 """
-    calc_dosis(params, model, person)
+    compute_dosis(params, model, person)
 
     Calculates dosis (e.g. of heat or virus particles) agent is exposed to over the course of the day.
 """
 function compute_dosis(params, model, person)
     if params[:heat_time_module] == "24_hours"
         if params[:disease] == "heat"
-            dosis = compute_dosis_for_activity_based_heat(params, model, person)
+            dosis = compute_dosis_for_activity_based_heat(params, thresholds, model, person)
         end
     elseif params[:heat_time_module] == "out_of_home_duration"
-        if params[:disease] == "heat"
-            dosis = compute_dosis_for_activity_based_heat(params, model, person)
+        if params[:disease] == "heat" 
+            dosis = compute_dosis_for_activity_based_heat(params, thresholds, model, person)
         end
-        elseif params[:heat_time_module] == "activity_based"
+    elseif params[:heat_time_module] == "activity_based"
         if params[:disease] == "heat"
-            dosis = compute_dosis_for_activity_based_heat(params, model, person)
+            dosis = compute_dosis_for_activity_based_heat(params, thresholds, model, person)
         end
     end
 

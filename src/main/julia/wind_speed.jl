@@ -54,5 +54,5 @@ close(zr)
 df_wind = parse_wind_data(csv_text)
 
 println("\nFirst 5 rows:")
-println(first(df, 5))
-println("\n$(nrow(df)) rows, columns: $(names(df))")
+println(first(df_wind, 5))
+println("\n$(nrow(df_wind)) rows, columns: $(names(df_wind))")

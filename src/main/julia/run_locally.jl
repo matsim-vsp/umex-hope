@@ -1,11 +1,17 @@
+include("preprocessing.jl")
 include("model.jl")
 include("../../../population.jl")
 include("../../../network_creation.jl")
 include("../../../temperature.jl")
 include("../../../experienced_plans.jl")
 include("../../../out_of_home_duration.jl")
-include("plot_singlescenario.jl")
+include("postprocessing.jl")
 
+output_path = "data/" * replace(first(string(now()), 19), ":" => "")
+mkpath(output_path)
+
+include("utci_prep.jl")
+df_merged = preprocessing(df_merged, output_path)
 
 pop_file = "hannover-1pct.output_persons.csv"
 agent_attr = population_reader(pop_file)
@@ -23,7 +29,7 @@ agent_attr = leftjoin(agent_attr, exp_plans_durations_df, on = :person)
 
 params = Dict(
     :seeds => 1,
-    :iterations => nrow(temperature),
+    :iterations => nrow(df_merged),
     :disease => "heat", #Options: "heat", "covid", "rsv"
     :base_susceptibility => 0.05,
     :recovery_rate => 1,
@@ -41,12 +47,13 @@ params = Dict(
     :temperature_file => temperature_file,
     :temperature => temperature,
     :threshold_temp => 20,
-    :output_folder => missing,
+    :output_folder => output_path,
     :experienced_plans_dict => exp_plans_dict,
     :exp_trial => "Y", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
-    :heat_time_module => "24_hours", #Options: "24_hours", "out_of_home_duration", "activity_based"
-    :affection_age_dependent => "Y" #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
-)
+    :heat_time_module => "activity_based", #Options: "24_hours", "out_of_home_duration", "activity_based"
+    :affection_age_dependent => "Y", #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
+    :df_merged => df_merged
+    )
 
 model = run_model(params)
 

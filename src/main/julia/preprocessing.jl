@@ -28,4 +28,6 @@ function preprocessing(df_merged, output_path)
     )
 
     savefig(string(output_path,"/UTCI_input_variables.pdf"))
+
+    return df_merged
 end

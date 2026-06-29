@@ -77,6 +77,6 @@ close(zr)
 df_humidity = parse_humidity(csv_text)
 
 println("\nFirst 40 rows:")
-println(first(df, 40))
+println(first(df_humidity, 40))
 
-println("\nDataFrame info: $(nrow(df)) rows, columns: $(names(df))")
+println("\nDataFrame info: $(nrow(df_humidity)) rows, columns: $(names(df_humidity))")
