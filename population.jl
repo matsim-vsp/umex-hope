@@ -15,10 +15,11 @@ using DataFrames
 """
 function population_reader(file_path)
 
-    populationDf = CSV.read(file_path, DataFrame, 
+    df = open(GzipDecompressorStream, file_path) do io
+        populationDf = CSV.read(io, DataFrame, 
                             header = 1, 
                             select=["person", "SNZ_age", "SNZ_gender", "SNZ_hhIncome", "SNZ_hhSize", "home_x", "home_y", "income", "sex"])
-
+    end
     prefixes = ["freight", "goodsTraffic", "commercialPersonTraffic"]
     populationDf = filter(:person => p -> !any(startswith(p, prefix) for prefix in prefixes), populationDf) #remove these "agents" as they are not of interest for us
 end

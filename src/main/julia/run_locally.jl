@@ -12,15 +12,14 @@ mkpath(output_path)
 
 include("utci_prep.jl")
 df_merged = preprocessing(df_merged, output_path)
-
-pop_file = "hannover-1pct.output_persons.csv"
+pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
 agent_attr = population_reader(pop_file)
-network_file = "hannover-1pct.output_network.xml"
+network_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_network.xml"
 network = network_creation(network_file)
 trajectories_file = "path"
 temperature_file = "TemperatureHannoverDWD.txt"
 temperature = temperature_reader(temperature_file)
-exp_plans_file = "hannover-1pct.output_experienced_plans.xml"
+exp_plans_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_experienced_plans.xml.gz"
 exp_plans_pop_df, exp_plans_dict, exp_plans_durations_df = experienced_plans_reader(exp_plans_file)
 out_of_home_duration_df = process_all_agents(exp_plans_dict)
 

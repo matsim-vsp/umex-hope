@@ -3,6 +3,7 @@ using DataFrames
 using LightXML
 using EzXML
 using Dates
+using CodecZlib
 
 include("out_of_home_duration.jl")
 
@@ -14,8 +15,10 @@ include("out_of_home_duration.jl")
 """
 function experienced_plans_reader(file_path)
     # Read and parse XML file
-    document = read(file_path, String)
-    xml_doc = parsexml(document)
+    xml_string = open(GzipDecompressorStream, file_path) do io
+        document = read(io, String)
+    end
+    xml_doc = parsexml(xml_string)
     # Get all person elements
     persons = findall("//person", xml_doc)
 
