@@ -7,7 +7,7 @@ include("compute_affection_chance.jl")
 #This work partly recycles code from previous work https://github.com/matsim-vsp/epi-net-sim/blob/main/src/main/julia/model.jl
 
 # Define Agent
-@agent Person_Sim GraphAgent begin
+@agent struct Person_Sim(GraphAgent)
     SNZ_id::String
     SNZ_age::Int64
     SNZ_gender::String
@@ -95,7 +95,7 @@ function run_model(params)
             # Step through all iterations. In each iteration:
             #   1) agent_step function is applied to each agent
             #   2) model_step function occurs at end of iteration
-            step!(model, agent_step!, model_step!, params[:iterations])
+            step!(model, params[:iterations])
             # (I think that step! is defined in the "Agents" package.  It will get the model_step and agent_step methods from the
             # model and then execute them.)
             # (Why that functions with exactly the above syntax is not clear to me.  I read as syntax step!(mode, function ), but I
@@ -104,7 +104,7 @@ function run_model(params)
             # (--> step_standard has something that looks a bit similar and probably resolves this)
         end
 
-        start_time = DateTime(2024, 12, 01, 12, 00)
+        start_time = DateTime(2024, 12, 27, 12, 00)
 
         # Build the DataFrame from the dict
         df = DataFrame(
@@ -182,7 +182,7 @@ function run_model(params)
         #     newlyaffected91inf = model.hist_newlyaffected91inf
         # )
         # CSV.write(joinpath(output_path, "SusceptibleExposedAffected_diffbyage.csv"), df_diffbyage)
-
+        CSV.write(joinpath(output_path, "dosis_accumulation_df.csv"), model.dosis_accumulation_DF)
         return model
     end
 end
@@ -261,11 +261,12 @@ function initialize(net,
         :days_necessary_exposure => days_necessary_exposure,
         :affection_age_dependent => affection_age_dependent,
         #starting time, start at midnight
-        :timer => DateTime(2024, 12, 01, 12, 00), #TODO: Need to figure out starting date
+        :timer => DateTime(2024, 12, 27, 12, 00), #TODO: Need to figure out starting date
         :exp_trial => exp_trial,
         :output_path => [],
         :hist => hist,
-        :hist_timer => []
+        :hist_timer => [],
+        :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[])
     )
 
     # create random number generator
@@ -275,9 +276,11 @@ function initialize(net,
     scheduler = Schedulers.ByProperty(AES_scheduler)
 
     # Model; unremovable = agents never leave the model
-    model = UnremovableABM(
+    model = StandardABM(
         Person_Sim, space;
-        properties, rng, scheduler=scheduler
+        properties, rng, scheduler=scheduler,
+        agent_step! = agent_step!,
+        model_step! = model_step!
     )
 
     # add agents to model
@@ -388,7 +391,8 @@ function agent_step!(person, model)
     if person.health_status == "susceptible"
 
         # S -> A
-        affected_chance = compute_affection_chance(params, model, person)        
+        dosis, affected_chance = compute_affection_chance(params, model, person)
+        push!(model.dosis_accumulation_DF, (agentid = person.SNZ_id, heatdosis = dosis, timer = model.timer))        
         #affected_chance = 0.3
         if rand() <= affected_chance
             person.health_status = "affected"
