@@ -8,15 +8,16 @@ include("compute_dosis.jl")
 
 function compute_affection_chance(params, model, person)
 
-    person.affection_theta = 20
+    person.affection_theta = 1
+    dosis = compute_dosis(params,model,person)
 
     if params[:heat_time_module] == "activity_based"
-        inf_chance = (1-exp(-person.affection_theta*compute_dosis(params,model,person)))
+        inf_chance = (1-exp(-person.affection_theta*dosis))
     elseif params[:heat_time_module] == "out_of_home_duration" 
-        inf_chance = (1-exp(-person.affection_theta*compute_dosis(params,model,person)))
+        inf_chance = (1-exp(-person.affection_theta*dosis))
     elseif params[:heat_time_module] == "24_hours"
-        inf_chance = (1-exp(-person.affection_theta*compute_dosis(params,model,person)))
+        inf_chance = (1-exp(-person.affection_theta*dosis))
     end
     
-    return inf_chance
+    return dosis, inf_chance
 end

@@ -26,6 +26,13 @@ out_of_home_duration_df = process_all_agents(exp_plans_dict)
 agent_attr = leftjoin(agent_attr, out_of_home_duration_df, on = :person)
 agent_attr = leftjoin(agent_attr, exp_plans_durations_df, on = :person)
 
+#TODO: SOMETHING GOES WRONG WHEN COMPUTING TIME OF WALK, CHECK ONCE YOU ARE BACK FROM CONFERENCE
+cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
+agent_attr.total_hours = [sum(row[col] for col in cols) / 3600 for row in eachrow(agent_attr)]
+filter!(row -> 23.5 <= row.total_hours <= 24, agent_attr)
+
+CSV.write(string(output_path, "/input_agent_attributes.csv"), agent_attr)
+
 params = Dict(
     :seeds => 1,
     :iterations => nrow(df_merged),
@@ -53,6 +60,9 @@ params = Dict(
     :affection_age_dependent => "Y", #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
     :df_merged => df_merged
     )
+
+    
+DosisAccumulationDF = DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[])
 
 model = run_model(params)
 
