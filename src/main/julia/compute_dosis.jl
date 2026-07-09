@@ -45,7 +45,7 @@ function compute_dosis_for_activity_based_heat(params, thresholds, model, person
         dosis += compute_cumulative_UTCI_exceedance(air_temp, mean_radiant_temp, vel, rh, thresholds, person, activity)  
         end
     end
-    return dosis
+    return max(dosis, 0) # ensure that dosis is not negative
 end
 
 """
