@@ -1,4 +1,4 @@
-using Plots
+using Plots, Dates, HTTP, CSV, DataFrames, Statistics, Random
 
 function preprocessing(df_merged, output_path)
     df_merged = filter(r -> r.timestamp < DateTime("2026-03-22T12:00:00"), df_merged)
@@ -15,19 +15,24 @@ function preprocessing(df_merged, output_path)
         Plots.plot(df_merged.timestamp, df_merged[!, v];
             label     = nothing,
             ylabel    = l,
-            linewidth = 1.5,
-            color     = :steelblue)
+            linewidth = 2,
+            color     = :steelblue,
+            guidefontsize = 16,
+            tickfontsize  = 12)
         for (v, l) in zip(vars, labels)
     ]
 
     Plots.plot(plots...;
-        layout  = (4, 1),
-        xlabel  = ["" "" "" "Timestamp"],   # only label the bottom panel
-        size    = (900, 800),
-        plot_title = "UTCI input variables"
+        layout  = (2, 2),
+        xlabel  = ["Date" "Date" "Date" "Date"],   # only label the bottom panel
+        size    = (1200, 800),
+        plot_title = "UTCI input variables",
+        guidefontsize = 16,
+        tickfontsize  = 12
     )
 
     savefig(string(output_path,"/UTCI_input_variables.pdf"))
+    savefig(string(output_path,"/UTCI_input_variables.png"))
 
     return df_merged
 end

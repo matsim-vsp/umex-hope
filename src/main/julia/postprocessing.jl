@@ -1,4 +1,4 @@
-using CSV, DataFrames, StatsPlots, Colors, StatsBase
+using CSV, DataFrames, StatsPlots, Colors, StatsBase, Measures
 
 function postprocessing(output_path)
 
@@ -15,6 +15,7 @@ function postprocessing(output_path)
         legend = :topright
     )
     savefig(string(output_path, "/SusceptibleExposedAffected.pdf"))
+    savefig(string(output_path, "/SusceptibleExposedAffected.png"))
 
     # AFFECTED BY AGE OVER TIME
     # Read the CSV of Susceptible, Exposed, Affected by age
@@ -50,6 +51,7 @@ function postprocessing(output_path)
         legend = :outertopright
     )
     savefig(string(output_path, "/dosis_over_time.pdf"))
+    savefig(string(output_path, "/dosis_over_time.png"))
 
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
@@ -76,7 +78,7 @@ function postprocessing(output_path)
     sub = agent_attr_DF[in.(agent_attr_DF.person, Ref(sample_ids)), :]
 
     # matrix of values: rows = agents, columns = activities
-    values_matrix = Matrix(sub[:, cols])
+    values_matrix = Matrix(sub[:, cols]) ./ 3600
 
     StatsPlots.groupedbar(
         string.(sub.person),
@@ -84,12 +86,21 @@ function postprocessing(output_path)
         bar_position = :stack,
         label = permutedims(cols),
         xlabel = "Agent ID",
-        ylabel = "Time",
+        ylabel = "Time (hours)",
         title = "Time at Activities by Agent",
         legend = :outertopright,
-        xrotation = 45
+        xrotation = 45,
+        bottom_margin = 12mm,
+        left_margin = 10mm,
+        guidefontsize = 36,
+        tickfontsize  = 28,
+        legendfontsize = 28,
+        titlefontsize = 36,
+        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
+        dpi           = 300   
     )
     
     savefig(string(output_path, "/distribution_time_at_activities_stacked.pdf"))
+    savefig(string(output_path, "/distribution_time_at_activities_stacked.png"))
     
 end

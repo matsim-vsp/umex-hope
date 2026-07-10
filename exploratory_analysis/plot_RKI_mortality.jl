@@ -57,7 +57,7 @@ for yr in years
        error("You entered an invalid parameter for Deaths_or_Incidence")
     end
 
-    p = plot(
+    p = Plots.plot(
         title = "Year $(Int(yr))",
         xlabel = "Calendar week",
         ylabel = ylabel,
@@ -87,7 +87,7 @@ for yr in years
             error("You entered an invalid parameter for Deaths_or_Incidence")
         end
 
-        plot!(p,
+        Plots.plot!(p,
             sub.KW,
             y_axis,
             ribbon = (
@@ -105,7 +105,7 @@ for yr in years
 end
 
 # Create a dummy legend panel
-legend_plot = plot(
+legend_plot = Plots.plot(
     framestyle = :none,
     background_color_subplot = :transparent,
     xlims = (0, 1), ylims = (0, 1),
@@ -113,7 +113,7 @@ legend_plot = plot(
 
 for (g, a) in zip(combos.Geschlecht, combos.Altersgruppe)
     c = color_map[(g, a)]
-    plot!(legend_plot,
+    Plots.plot!(legend_plot,
         [NaN], [NaN],
         color = c,
         label = string(g, " / ", a),
@@ -121,19 +121,25 @@ for (g, a) in zip(combos.Geschlecht, combos.Altersgruppe)
     )
 end
 
-plot!(legend_plot, legend = :inside, legendfontsize = 7)
+Plots.plot!(legend_plot, legend = :inside, legendfontsize = 7)
 
 # Combine all panels
 ncols = length(years)
 nrows = 1
 
-final_plot = plot(
+final_plot = Plots.plot(
     plots_list..., legend_plot,
     layout = @layout([a b c d{0.1w}]),
     size = ((ncols + 1) * 350, nrows * 320),
     plot_title = "Heat-related deaths by year, gender, and age group",
     plot_titlevspan = 0.09,
     top_margin = 10mm,
+    right_margin = 10mm,
+    bottom_margin = 10mm,
+    guidefontsize = 16,
+    tickfontsize  = 10,
+        legendfontsize = 10,
+        titlefontsize = 16,
 )
 
 if Deaths_or_Incidence == "Deaths"

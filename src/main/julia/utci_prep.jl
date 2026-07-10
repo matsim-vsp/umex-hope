@@ -1,3 +1,5 @@
+using ZipFile, CSV, DataFrames, Dates, Statistics, Plots
+
 include("compute_mrt.jl")
 include("wind_speed.jl")
 include("relative_humidity.jl")
