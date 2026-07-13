@@ -1,4 +1,4 @@
-using CSV, DataFrames, StatsPlots, Dates
+using CSV, DataFrames, StatsPlots, Dates, Statistics
 
 # Read the CSV file
 df = CSV.read("./Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv", DataFrame)
@@ -6,6 +6,13 @@ df = CSV.read("./Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv", Dat
 # Remove the date 2026-07-06 (it's equal to zero --> calls had probably not been recorded yet)
 df = filter(row -> row.Datum != Date("2026-07-06"), df)
 df.Incidence = df.Anzahl ./ 205000 .* 100000 #Helmstedt and Wolfsburg have a joint Leitstelle 
+
+# Add weekday column (e.g., "Monday", "Tuesday", ...)
+df.weekday = dayname.(df.Datum)
+
+# For each weekday, compute the mean of Anzahl and subtract it from each row's Anzahl
+df = transform(groupby(df, :weekday),
+    :Anzahl => (x -> x .- mean(x)) => :deviation_from_mean)
 
 # Create the line plot (of daily data)
 p1 = @df df StatsPlots.plot(:Datum, :Anzahl,
@@ -18,7 +25,12 @@ p2 = @df df StatsPlots.plot(:Datum, :Incidence,
     ylabel = "Incidence",
     legend = false)
 
-StatsPlots.plot(p1, p2, layout = (2, 1))
+p3 = @df df StatsPlots.plot(:Datum, :deviation_from_mean,
+    xlabel = "Date",
+    ylabel = "Deviation from Mean",
+    legend = false)
+
+StatsPlots.plot(p1, p2, p3, layout = (3, 1))
 
 savefig(string(output_path, "/daily_counts_incidence_control_center.pdf"))
 savefig(string(output_path, "/daily_counts_incidence_control_center.png"))
