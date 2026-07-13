@@ -84,17 +84,16 @@ function preprocessing(df_merged, output_path)
     savefig(string(output_path, "/distribution_time_at_activities_stacked.pdf"))
     savefig(string(output_path, "/distribution_time_at_activities_stacked.png"))
 
-
     # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
     agent_attr_toosmall_DF = CSV.read(string(output_path, "/input_agent_attributes_toosmall.csv"), DataFrame)
     # pick a manageable number of agents (e.g. 20 random ones)
     unique_ids = unique(agent_attr_toosmall_DF.person)
     sample_ids = StatsBase.sample(unique_ids, min(20, length(unique_ids)); replace = false)
 
-    sub_toosmall = agent_attr_DF[in.(agent_attr_toosmall_DF.person, Ref(sample_ids)), :]
+    sub_toosmall = agent_attr_toosmall_DF[in.(agent_attr_toosmall_DF.person, Ref(sample_ids)), :]
 
     # matrix of values: rows = agents, columns = activities
-    values_matrix = Matrix(sub[:, cols]) ./ 3600
+    values_matrix = Matrix(sub_toosmall[:, cols]) ./ 3600
 
     StatsPlots.groupedbar(
         string.(sub_toosmall.person),
@@ -118,6 +117,41 @@ function preprocessing(df_merged, output_path)
     
     savefig(string(output_path, "/distribution_time_at_activities_stacked_toosmall.pdf"))
     savefig(string(output_path, "/distribution_time_at_activities_stacked_toosmall.png"))
+
+
+    # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
+    agent_attr_toolong_DF = CSV.read(string(output_path, "/input_agent_attributes_toolong.csv"), DataFrame)
+    # pick a manageable number of agents (e.g. 20 random ones)
+    unique_ids = unique(agent_attr_toolong_DF.person)
+    sample_ids = StatsBase.sample(unique_ids, min(20, length(unique_ids)); replace = false)
+
+    sub_toolong = agent_attr_toolong_DF[in.(agent_attr_toolong_DF.person, Ref(sample_ids)), :]
+
+    # matrix of values: rows = agents, columns = activities
+    values_matrix = Matrix(sub_toolong[:, cols]) ./ 3600
+
+    StatsPlots.groupedbar(
+        string.(sub_toolong.person),
+        values_matrix,
+        bar_position = :stack,
+        label = permutedims(cols),
+        xlabel = "Agent ID",
+        ylabel = "Time (hours)",
+        title = "Time at Activities by Agent",
+        legend = :outertopright,
+        xrotation = 45,
+        bottom_margin = 12mm,
+        left_margin = 10mm,
+        guidefontsize = 36,
+        tickfontsize  = 28,
+        legendfontsize = 28,
+        titlefontsize = 36,
+        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
+        dpi           = 300   
+    )
+    
+    savefig(string(output_path, "/distribution_time_at_activities_stacked_toolong.pdf"))
+    savefig(string(output_path, "/distribution_time_at_activities_stacked_toolong.png"))
 
     return df_merged
 end
