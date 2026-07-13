@@ -47,3 +47,42 @@ StatsPlots.plot(p1, p2, layout = (2, 1))
 
 savefig(string(output_path, "/weekly_counts_incidence_control_center.pdf"))
 savefig(string(output_path, "/weekly_counts_incidence_control_center.png"))
+
+#Differentiation by age bin
+# Read the second CSV file
+df2 = CSV.read("Taegliche_RTW_Counts_nach_Alter_2026-01-01_bis_2026-07-06.csv", DataFrame)
+
+# Get all column names except Datum (these are the y-columns)
+ycols = names(df2, Not([:Datum, :Anzahl_gesamt]))
+
+# Plot all columns as lines
+@df df2 StatsPlots.plot(:Datum, cols(Symbol.(ycols)),
+    xlabel = "Date",
+    ylabel = "Counts",
+    labels = permutedims(ycols),
+    legend = :outerright)
+
+savefig(string(output_path, "/daily_counts_incidence_control_center_agebins.pdf"))
+savefig(string(output_path, "/daily_counts_incidence_control_center_agebins.png"))
+
+# Assign each date to the Monday of its week
+df2.Woche = firstdayofweek.(df2.Datum)
+
+# Columns to aggregate: everything except Datum, Woche, and Anzahl_gesamt
+ycols = names(df2, Not([:Datum, :Woche, :Anzahl_gesamt]))
+
+# Aggregate: sum each column per week
+weekly2 = combine(groupby(df2, :Woche), ycols .=> sum .=> ycols)
+
+# Sort by week
+sort!(weekly2, :Woche)
+
+# Plot the weekly data
+@df weekly2 StatsPlots.plot(:Woche, cols(Symbol.(ycols)),
+    xlabel = "Date",
+    ylabel = "Counts",
+    labels = permutedims(ycols),
+    legend = :outerright)
+
+savefig(string(output_path, "/weekly_counts_incidence_control_center_agebins.pdf"))
+savefig(string(output_path, "/weekly_counts_incidence_control_center_agebins.png"))
