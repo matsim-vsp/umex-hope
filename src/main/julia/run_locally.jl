@@ -12,7 +12,6 @@ output_path = "data/" * replace(first(string(now()), 19), ":" => "")
 mkpath(output_path)
 
 include("utci_prep.jl")
-df_merged = preprocessing(df_merged, output_path)
 pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
 agent_attr = population_reader(pop_file)
 network_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_network.xml"
@@ -30,9 +29,14 @@ agent_attr = leftjoin(agent_attr, exp_plans_durations_df, on = :person)
 #TODO: SOMETHING GOES WRONG WHEN COMPUTING TIME OF WALK, CHECK ONCE YOU ARE BACK FROM CONFERENCE
 cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
 agent_attr.total_hours = [sum(row[col] for col in cols) / 3600 for row in eachrow(agent_attr)]
+agent_attr_toolong = filter(row -> row.total_hours > 24, agent_attr)
+agent_attr_toosmall = filter(row -> row.total_hours < 23.5, agent_attr)
 filter!(row -> 23.5 <= row.total_hours <= 24, agent_attr)
-
 CSV.write(string(output_path, "/input_agent_attributes.csv"), agent_attr)
+CSV.write(string(output_path, "/input_agent_attributes_toolong.csv"), agent_attr_toolong)
+CSV.write(string(output_path, "/input_agent_attributes_toosmall.csv"), agent_attr_toosmall)
+
+df_merged = preprocessing(df_merged, output_path)
 
 params = Dict(
     :seeds => 1,

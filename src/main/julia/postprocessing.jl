@@ -52,55 +52,5 @@ function postprocessing(output_path)
     )
     savefig(string(output_path, "/dosis_over_time.pdf"))
     savefig(string(output_path, "/dosis_over_time.png"))
-
-    #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
-    cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
-
-    agent_attr_DF = CSV.read(string(output_path, "/input_agent_attributes.csv"), DataFrame)
-    agent_attr_DF = filter(row -> !all(row[col] == 0 for col in cols) && !any(row[col] < 0 for col in cols), agent_attr_DF)
-    plots = map(cols) do col
-        counts = StatsBase.countmap(agent_attr_DF[!, col] ./ 3600)
-        StatsPlots.bar(collect(keys(counts)), collect(values(counts)),
-            title = col,
-            legend = false,
-            xlabel = "",
-            ylabel = "Count"
-        )
-    end
-    StatsPlots.plot(plots..., layout = (3, 5), size = (1000, 600))
-    savefig(string(output_path, "/distribution_time_at_activities.pdf"))
-
-    # STACKED BAR CHART FOR SUBSET OF AGENTS
-    # pick a manageable number of agents (e.g. 20 random ones)
-    unique_ids = unique(agent_attr_DF.person)
-    sample_ids = StatsBase.sample(unique_ids, min(20, length(unique_ids)); replace = false)
-
-    sub = agent_attr_DF[in.(agent_attr_DF.person, Ref(sample_ids)), :]
-
-    # matrix of values: rows = agents, columns = activities
-    values_matrix = Matrix(sub[:, cols]) ./ 3600
-
-    StatsPlots.groupedbar(
-        string.(sub.person),
-        values_matrix,
-        bar_position = :stack,
-        label = permutedims(cols),
-        xlabel = "Agent ID",
-        ylabel = "Time (hours)",
-        title = "Time at Activities by Agent",
-        legend = :outertopright,
-        xrotation = 45,
-        bottom_margin = 12mm,
-        left_margin = 10mm,
-        guidefontsize = 36,
-        tickfontsize  = 28,
-        legendfontsize = 28,
-        titlefontsize = 36,
-        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
-        dpi           = 300   
-    )
-    
-    savefig(string(output_path, "/distribution_time_at_activities_stacked.pdf"))
-    savefig(string(output_path, "/distribution_time_at_activities_stacked.png"))
     
 end
