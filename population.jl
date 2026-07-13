@@ -1,6 +1,4 @@
-using Pkg
-using CSV
-using DataFrames
+using Pkg, CSV, DataFrames, CodecZlib
 
 """
     population_reader(file_path)
