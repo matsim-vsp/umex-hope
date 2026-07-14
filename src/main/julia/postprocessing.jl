@@ -17,6 +17,31 @@ function postprocessing(output_path)
     savefig(string(output_path, "/SusceptibleExposedAffected.pdf"))
     savefig(string(output_path, "/SusceptibleExposedAffected.png"))
 
+    #AFFECTED OVER TIME (INCIDENCE), LEITSTELLENDATEN
+    df_controlcenter = CSV.read("/Users/sydney/git/umex-hope/daily_counts_incidence_control_center.csv", DataFrame)
+    df_controlcenter.Datum = Date.(df_controlcenter.Datum)
+    #Only keep affected
+    df = df[df.state .== "affected", :]
+    df.Incidence = df.count ./ 7687 .* 100000 
+    df.datetime = Date.(df.datetime)
+
+    println(eltype(df_controlcenter.Datum))   # e.g. Date
+    println(eltype(df.datetime))           # e.g. DateTime or String — the mismatch
+    
+
+    @df df_controlcenter StatsPlots.plot(:Datum, :heatwave_incidence,
+    xlabel = "Date",
+    ylabel = "Affected",
+    legend = false,
+    linewidth = 2)
+
+    @df df StatsPlots.plot!(:datetime, :Incidence,
+    linewidth = 2)
+
+    savefig(string(output_path, "/AffectedvsData.pdf"))
+    savefig(string(output_path, "/AffectedvsData.png"))
+
+
     # AFFECTED BY AGE OVER TIME
     # Read the CSV of Susceptible, Exposed, Affected by age
     df_byage = CSV.read(string(output_path, "/SusceptibleExposedAffected_diffbyage.csv"), DataFrame)
