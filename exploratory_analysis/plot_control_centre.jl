@@ -67,6 +67,8 @@ StatsPlots.plot(p1, p2, p3, p4, p5, p6, layout = (3, 2), size = (1200, 1000), dp
 savefig(string("daily_counts_incidence_control_center.pdf"))
 savefig(string("daily_counts_incidence_control_center.png"))
 
+CSV.write("daily_counts_incidence_control_center.csv", df)
+
 # Assign each date to the Monday of its week
 df.Woche = firstdayofweek.(df.Datum)
 # Aggregate: sum the counts per week

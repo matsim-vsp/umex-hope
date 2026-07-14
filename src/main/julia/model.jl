@@ -104,7 +104,7 @@ function run_model(params)
             # (--> step_standard has something that looks a bit similar and probably resolves this)
         end
 
-        start_time = DateTime(2025, 1, 1, 12, 00)
+        start_time = DateTime(2025, 1, 9, 12, 00)
 
         # Build the DataFrame from the dict
         df = DataFrame(
@@ -261,7 +261,7 @@ function initialize(net,
         :days_necessary_exposure => days_necessary_exposure,
         :affection_age_dependent => affection_age_dependent,
         #starting time, start at midnight
-        :timer => DateTime(2025, 1, 1, 12, 00), #TODO: Need to figure out starting date
+        :timer => DateTime(2025, 1, 9, 12, 00), #TODO: Need to figure out starting date
         :exp_trial => exp_trial,
         :output_path => [],
         :hist => hist,

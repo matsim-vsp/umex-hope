@@ -1,7 +1,7 @@
 using Plots, Dates, HTTP, CSV, DataFrames, Statistics, Random
 
 function preprocessing(df_merged, output_path)
-    df_merged = filter(r -> r.timestamp < DateTime("2026-03-22T12:00:00"), df_merged)
+    df_merged = filter(r -> r.timestamp < DateTime("2026-07-07T12:00:00"), df_merged)
 
     df_merged.air_temperature_c = coalesce.(df_merged.air_temperature_c, 0.0)
     df_merged.relative_humidity_pct = coalesce.(df_merged.relative_humidity_pct, 0.0)
