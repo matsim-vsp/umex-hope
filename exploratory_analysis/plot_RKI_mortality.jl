@@ -164,7 +164,7 @@ nrows = 1
 
 final_plot = Plots.plot(
     plots_list..., legend_plot,
-    layout = @layout([a b c d{0.1w}]),
+    layout = @layout([a b c d e{0.1w}]),
     size = ((ncols + 1) * 350, nrows * 320),
     #plot_title = "Heat-related deaths by year, gender, and age group",
     plot_titlevspan = 0.09,
