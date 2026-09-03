@@ -45,7 +45,7 @@ else
     agent_attr_toolong = filter(row -> row.total_hours > 24, agent_attr)
     agent_attr_toosmall = filter(row -> row.total_hours < 23.5, agent_attr)
     filter!(row -> 23.5 <= row.total_hours <= 24, agent_attr)
-    CSV.write(string("input/", agents_filename), agent_attr)
+    CSV.write(agents_filename, agent_attr)
     CSV.write(string(output_path, "/input_agent_attributes_toolong.csv"), agent_attr_toolong)
     CSV.write(string(output_path, "/input_agent_attributes_toosmall.csv"), agent_attr_toosmall)
 end 
