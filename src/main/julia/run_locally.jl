@@ -11,7 +11,13 @@ include("postprocessing.jl")
 output_path = "data/" * replace(first(string(now()), 19), ":" => "")
 mkpath(output_path)
 
-include("utci_prep.jl")
+utci_filename = "df_utci_$(Dates.format(today(), "yyyy-mm-dd")).csv"
+if isfile(utci_filename)
+    df_utci = CSV.read(filename, DataFrame)
+else
+    include("utci_prep.jl")
+end
+
 pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
 agent_attr = population_reader(pop_file)
 network_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_network.xml"
@@ -60,7 +66,7 @@ params = Dict(
     :threshold_temp => 20,
     :output_folder => output_path,
     :experienced_plans_dict => exp_plans_dict,
-    :exp_trial => "Y", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
+    :exp_trial => "No", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
     :heat_time_module => "activity_based", #Options: "24_hours", "out_of_home_duration", "activity_based"
     :affection_age_dependent => "Y", #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
     :df_merged => df_merged
