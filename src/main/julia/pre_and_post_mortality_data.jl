@@ -230,6 +230,7 @@ end
 # =====================================================================
 # Plotting -- one row per data source, x-axes aligned
 # =====================================================================
+date_fmt(d) = Dates.format(Date(Dates.UTD(round(Int, d))), "yyyy-mm-dd")
 """
     plot_combined(csv_path = OUTPUT_CSV_PATH; save_path = PLOT_PATH)
  
@@ -238,17 +239,23 @@ Reads the combined CSV back from disk, keeps only rows from `year`
 data source), sharing a single, aligned date axis via `link = :x`. Saves a
 PNG and returns the plot object.
 """
-function plot_mortality_data(csv_path::AbstractString = OUTPUT_CSV_PATH; save_path::AbstractString = PLOT_PATH, year::Integer = PLOT_YEAR)
+function plot_mortality_data(csv_path::AbstractString = OUTPUT_CSV_PATH;
+                              save_path::AbstractString = PLOT_PATH,
+                              year::Integer = PLOT_YEAR,
+                              pre_or_post::AbstractString = "pre",
+                              model_csv_path::Union{Nothing,AbstractString} = nothing)
+    date_fmt(d) = Dates.format(Date(Dates.UTD(round(Int, d))), "yyyy-mm-dd")
+
     df = CSV.read(csv_path, DataFrame)
     df.date = Date.(df.date)
     filter!(row -> Dates.year(row.date) == year, df)
- 
+
     sources = filter(s -> s in df.source, SOURCE_ORDER)   # keep fixed order, drop any that failed to load
     isempty(sources) && error("No sources found in $csv_path -- nothing to plot.")
- 
+
     panels = map(enumerate(sources)) do (i, src)
         sub = sort(filter(row -> row.source == src, df), :date)
-        is_bottom = i == length(sources)
+        is_bottom = i == length(sources) && pre_or_post != "post"   # panel 4 is no longer the bottom once panel 5 is added
         Plots.plot(
             sub.date, sub.deaths;
             seriestype  = :line,
@@ -262,26 +269,54 @@ function plot_mortality_data(csv_path::AbstractString = OUTPUT_CSV_PATH; save_pa
             tickfontsize  = 7,
             gridalpha   = 0.15,             # recessive gridlines
             framestyle  = :box,
-            xformatter  = is_bottom ? :auto : (_ -> ""),   # only the bottom panel needs date labels
+            xformatter  = is_bottom ? date_fmt : (_ -> ""),   # only the bottom panel needs date labels
             yformatter  = :plain           # e.g. "20000" instead of "2×10⁴"
         )
     end
- 
+
+    if pre_or_post == "post"
+        model_csv_path === nothing &&
+            error("model_csv_path must be provided when pre_or_post == \"post\".")
+
+        model_df = CSV.read(model_csv_path, DataFrame)
+        model_df.datetime = Date.(model_df.datetime)                # DateTime -> Date, matching the other 4 panels
+        filter!(row -> row.state == "affected", model_df)           # only the mortality state
+        filter!(row -> Dates.year(row.datetime) == year, model_df)  # match the other 4 panels' date range
+        sort!(model_df, :datetime)
+
+        model_panel = Plots.plot(
+            model_df.datetime, model_df.count;
+            seriestype  = :line,
+            linewidth   = 2,
+            color       = :black,          # no SOURCE_COLORS entry for the model -- adjust as you like
+            label       = false,
+            title       = "Model",
+            titlefontsize = 10,
+            ylabel      = "count",
+            guidefontsize = 8,
+            tickfontsize  = 7,
+            gridalpha   = 0.15,
+            framestyle  = :box,
+            xformatter  = date_fmt,         # this is now the bottom panel
+            yformatter  = :plain
+        )
+        push!(panels, model_panel)
+    end
+
     fig = Plots.plot(
         panels...;
         layout = (length(panels), 1),      # rows, not columns
         link   = :x,                       # aligned x-axes across panels
-        size   = (900, 900),
+        size   = (900, length(panels) * 225),   # scales with 4 or 5 panels
         left_margin  = 6Plots.mm,
         bottom_margin = 2Plots.mm,
     )
     Plots.xlabel!(fig[length(panels)], "date")   # only the bottom panel needs the axis label
- 
+
     savefig(fig, save_path)
     println("Saved plot to $save_path")
     return fig
 end
- 
 
 # =====================================================================
 # Preprocessing -- load all four sources, combine, write the CSV

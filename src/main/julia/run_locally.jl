@@ -6,6 +6,7 @@ include("../../../temperature.jl")
 include("../../../experienced_plans.jl")
 include("../../../out_of_home_duration.jl")
 include("postprocessing.jl")
+include("pre_and_post_mortality_data.jl")
 
 
 output_path = "data/" * replace(first(string(now()), 19), ":" => "")
@@ -18,6 +19,19 @@ else
     include("utci_prep.jl")
 end
 
+mortality_filename = "input/df_mortality_$(Dates.format(today(), "yyyy-mm-dd")).csv"
+if isfile(mortality_filename)
+    df_mortality = CSV.read(mortality_filename, DataFrame)
+else
+    preprocess_mortality_data()
+    plot_mortality_data(
+    "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
+    save_path = "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).png",
+    year = 2026,
+    pre_or_post = "pre"
+    )
+end
+
 pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
 agent_attr = population_reader(pop_file)
 network_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_network.xml"
@@ -27,6 +41,8 @@ temperature_file = "TemperatureHannoverDWD.txt"
 temperature = temperature_reader(temperature_file)
 
 agents_filename = "input/df_agents_attr_$(Dates.format(today(), "yyyy-mm-dd")).csv"
+agents_filename_toolong = "input/df_agents_attr_toolong_$(Dates.format(today(), "yyyy-mm-dd")).csv"
+agents_filename_toosmall = "input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 if isfile(agents_filename)
     agent_attr = CSV.read(agents_filename, DataFrame)
 else    
@@ -46,15 +62,15 @@ else
     agent_attr_toosmall = filter(row -> row.total_hours < 23.5, agent_attr)
     filter!(row -> 23.5 <= row.total_hours <= 24, agent_attr)
     CSV.write(agents_filename, agent_attr)
-    CSV.write(string(output_path, "/input_agent_attributes_toolong.csv"), agent_attr_toolong)
-    CSV.write(string(output_path, "/input_agent_attributes_toosmall.csv"), agent_attr_toosmall)
+    CSV.write(agents_filename_toolong, agent_attr_toolong)
+    CSV.write(agents_filename_toosmall, agent_attr_toosmall)
 end 
 
-df_merged = preprocessing(df_merged, output_path)
+df_merged = preprocessing(df_utci, output_path)
 
 params = Dict(
     :seeds => 1,
-    :iterations => nrow(df_merged),
+    :iterations => 100,
     :disease => "heat", #Options: "heat", "covid", "rsv"
     :base_susceptibility => 0.05,
     :recovery_rate => 1,
@@ -77,12 +93,21 @@ params = Dict(
     :exp_trial => "No", #Determines number of agents. If == "Y", then no. of agents = 100, else: no of agents according to population file
     :heat_time_module => "activity_based", #Options: "24_hours", "out_of_home_duration", "activity_based"
     :affection_age_dependent => "Y", #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
-    :df_merged => df_merged
+    :df_merged => df_merged,
+    :relative_risk_module => "Scovronick"
     )
 
     
 DosisAccumulationDF = DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[])
 
 model = run_model(params)
+
+plot_mortality_data(
+    "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
+    save_path = string(model.output_path[1], "/output-mortality.png"),
+    year = 2026,
+    pre_or_post = "post",
+    model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
+)
 
 postprocessing(model.output_path[1])
