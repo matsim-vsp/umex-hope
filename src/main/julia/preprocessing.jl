@@ -37,7 +37,7 @@ function preprocessing(df_merged, output_path)
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
 
-    agent_attr_DF = CSV.read(string(output_path, "/input_agent_attributes.csv"), DataFrame)
+    agent_attr_DF = CSV.read(string("input/df_agents_attr_", Dates.today(), ".csv"), DataFrame)
     agent_attr_DF = filter(row -> !all(row[col] == 0 for col in cols) && !any(row[col] < 0 for col in cols), agent_attr_DF)
     plots = map(cols) do col
         counts = StatsBase.countmap(agent_attr_DF[!, col] ./ 3600)
@@ -85,7 +85,7 @@ function preprocessing(df_merged, output_path)
     savefig(string(output_path, "/distribution_time_at_activities_stacked.png"))
 
     # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
-    agent_attr_toosmall_DF = CSV.read(string(output_path, "/input_agent_attributes_toosmall.csv"), DataFrame)
+    agent_attr_toosmall_DF = CSV.read(string("input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"), DataFrame)
     # pick a manageable number of agents (e.g. 20 random ones)
     unique_ids = unique(agent_attr_toosmall_DF.person)
     sample_ids = StatsBase.sample(unique_ids, min(20, length(unique_ids)); replace = false)
@@ -115,12 +115,12 @@ function preprocessing(df_merged, output_path)
         dpi           = 300   
     )
     
-    savefig(string(output_path, "/distribution_time_at_activities_stacked_toosmall.pdf"))
-    savefig(string(output_path, "/distribution_time_at_activities_stacked_toosmall.png"))
+    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toosmall.pdf"))
+    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toosmall.png"))
 
 
     # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
-    agent_attr_toolong_DF = CSV.read(string(output_path, "/input_agent_attributes_toolong.csv"), DataFrame)
+    agent_attr_toolong_DF = CSV.read(string("input/df_agents_attr_toolong_$(Dates.format(today(), "yyyy-mm-dd")).csv"), DataFrame)
     # pick a manageable number of agents (e.g. 20 random ones)
     unique_ids = unique(agent_attr_toolong_DF.person)
     sample_ids = StatsBase.sample(unique_ids, min(20, length(unique_ids)); replace = false)
@@ -150,8 +150,8 @@ function preprocessing(df_merged, output_path)
         dpi           = 300   
     )
     
-    savefig(string(output_path, "/distribution_time_at_activities_stacked_toolong.pdf"))
-    savefig(string(output_path, "/distribution_time_at_activities_stacked_toolong.png"))
+    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toolong.pdf"))
+    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toolong.png"))
 
     return df_merged
 end
