@@ -1,5 +1,7 @@
 using Plots, Dates, HTTP, CSV, DataFrames, Statistics, Random
 
+include("utci.jl")
+
 function preprocessing(df_merged, output_path)
     df_merged = filter(r -> r.timestamp < DateTime("2026-07-07T12:00:00"), df_merged)
 
@@ -8,6 +10,7 @@ function preprocessing(df_merged, output_path)
     df_merged.wind_speed_ms = coalesce.(df_merged.wind_speed_ms, 0.0)
     df_merged.Tmrt_C    = coalesce.(df_merged.Tmrt_C, 0.0)
 
+    # Plot of UTCI input variables
     vars   = [:air_temperature_c, :relative_humidity_pct, :wind_speed_ms, :Tmrt_C]
     labels = ["Air Temperature (°C)", "Relative Humidity (%)", "Wind Speed (m/s)", "Tmrt (°C)"]
 
@@ -33,6 +36,28 @@ function preprocessing(df_merged, output_path)
 
     savefig(string(output_path,"/UTCI_input_variables.pdf"))
     savefig(string(output_path,"/UTCI_input_variables.png"))
+
+    # UTCI
+
+    df_merged.UTCI = utci.(df_merged.air_temperature_c, 
+                df_merged.Tmrt_C,
+                df_merged.wind_speed_ms,
+                df_merged.Tmrt_C)
+    
+    Plots.plot(df_merged.timestamp, df_merged.UTCI;
+            label     = nothing,
+            ylabel    = "UTCI",
+            xlab = "Date",
+            linewidth = 2,
+            color     = :steelblue,
+            guidefontsize = 16,
+            tickfontsize  = 12,
+            size    = (1200, 400),
+            plot_title = "UTCI")
+    
+    savefig(string(output_path,"/UTCI.pdf"))
+    savefig(string(output_path,"/UTCI.png"))
+    
 
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]

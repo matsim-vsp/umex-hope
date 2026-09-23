@@ -8,13 +8,12 @@ include("../../../out_of_home_duration.jl")
 include("postprocessing.jl")
 include("pre_and_post_mortality_data.jl")
 
-
 output_path = "data/" * replace(first(string(now()), 19), ":" => "")
 mkpath(output_path)
 
 utci_filename = "input/df_utci_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 if isfile(utci_filename)
-    df_utci = CSV.read(utci_filename, DataFrame)
+    df_utci_prep = CSV.read(utci_filename, DataFrame)
 else
     include("utci_prep.jl")
 end
@@ -66,7 +65,7 @@ else
     CSV.write(agents_filename_toosmall, agent_attr_toosmall)
 end 
 
-df_merged = preprocessing(df_utci, output_path)
+df_merged = preprocessing(df_utci_prep, output_path)
 
 params = Dict(
     :seeds => 1,
