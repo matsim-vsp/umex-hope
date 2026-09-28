@@ -14,20 +14,17 @@ function postprocessing(output_path)
         title  = "Agent States Over Time",
         legend = :topright
     )
-    savefig(string(output_path, "/SusceptibleExposedAffected.pdf"))
-    savefig(string(output_path, "/SusceptibleExposedAffected.png"))
+    savefig(string(output_path, "/output-SusceptibleExposedAffected.pdf"))
+    savefig(string(output_path, "/output-SusceptibleExposedAffected.png"))
 
     #AFFECTED OVER TIME (INCIDENCE), LEITSTELLENDATEN
     df_controlcenter = CSV.read("/Users/sydney/git/umex-hope/daily_counts_incidence_control_center.csv", DataFrame)
     df_controlcenter.Datum = Date.(df_controlcenter.Datum)
-    #Only keep affected
-    df = df[df.state .== "affected", :]
+    #Only keep newly affected (new cases per day, comparable to daily incidence)
+    df = df[df.state .== "newlyaffected", :]
     df.Incidence = df.count ./ 7687 .* 100000 
     df.datetime = Date.(df.datetime)
-
-    println(eltype(df_controlcenter.Datum))   # e.g. Date
-    println(eltype(df.datetime))           # e.g. DateTime or String — the mismatch
-    
+    df = df[df.datetime .> Date(2026, 1, 1), :]
 
     @df df_controlcenter StatsPlots.plot(:Datum, :heatwave_incidence,
     xlabel = "Date",
@@ -38,8 +35,8 @@ function postprocessing(output_path)
     @df df StatsPlots.plot!(:datetime, :Incidence,
     linewidth = 2)
 
-    savefig(string(output_path, "/AffectedvsData.pdf"))
-    savefig(string(output_path, "/AffectedvsData.png"))
+    savefig(string(output_path, "/output-AffectedvsData.pdf"))
+    savefig(string(output_path, "/output-AffectedvsData.png"))
 
 
     # AFFECTED BY AGE OVER TIME
@@ -57,7 +54,7 @@ function postprocessing(output_path)
             legend = :topright,
             color  = :steelblue
     )
-    savefig(string(output_path, "/SusceptibleExposedAffected_diffbyage.pdf"))
+    savefig(string(output_path, "/output-SusceptibleExposedAffected_diffbyage.pdf"))
 
     #DOSIS OVER TIME FOR 20 RANDOMLY CHOSEN AGENTS
     dosis_df = CSV.read(string(output_path, "/dosis_accumulation_df.csv"), DataFrame)

@@ -26,7 +26,7 @@ else
     plot_mortality_data(
     "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
     save_path = "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).png",
-    year = 2026,
+    start_date = Date(2026, 5, 1),
     pre_or_post = "pre"
     )
 end
@@ -43,7 +43,7 @@ agents_filename = "input/df_agents_attr_$(Dates.format(today(), "yyyy-mm-dd")).c
 agents_filename_toolong = "input/df_agents_attr_toolong_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 agents_filename_toosmall = "input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 if isfile(agents_filename)
-    agent_attr = CSV.read(agents_filename, DataFrame)
+    agent_attr = CSV.read(agents_filename, DataFrame; types = Dict(:person => String))
 else    
     pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
     agent_attr = population_reader(pop_file)
@@ -69,7 +69,9 @@ df_merged = preprocessing(df_utci_prep, output_path)
 
 params = Dict(
     :seeds => 1,
-    :iterations => 100,
+    :iterations => 123, # 2026-05-01 to 2026-08-31 (last day with Tmrt data)
+    :start_date => Date(2026, 5, 1),
+    :affection_theta => 1e-4, # calibrated: largest theta for which the model curve is still proportional to heat dosis
     :disease => "heat", #Options: "heat", "covid", "rsv"
     :base_susceptibility => 0.05,
     :recovery_rate => 1,
@@ -104,7 +106,7 @@ model = run_model(params)
 plot_mortality_data(
     "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
     save_path = string(model.output_path[1], "/output-mortality.png"),
-    year = 2026,
+    start_date = Date(2026, 5, 1),
     pre_or_post = "post",
     model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
 )
