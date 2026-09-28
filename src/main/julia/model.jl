@@ -42,6 +42,7 @@ include("compute_affection_chance.jl")
     premorbidity::Int64
     experienced_plans_reader::Dict
     affection_theta::Float64
+    relative_risk::Float64
 end
 
 """
@@ -55,7 +56,7 @@ function run_model(params)
 
         # sets output directory. If running on cluster, output folder is specified by start_multiple_sh. If run locally, a new folder will be created w/ current datetime 
         if ismissing(params[:output_folder])
-            output_path = "data/" * replace(first(string(now()), 19), ":" => "")
+            output_path = "output/" * replace(first(string(now()), 19), ":" => "")
             mkpath(output_path)
         else
             output_path = params[:output_folder]
@@ -104,15 +105,15 @@ function run_model(params)
             # (--> step_standard has something that looks a bit similar and probably resolves this)
         end
 
-        start_time = DateTime(2025, 1, 9, 12, 00)
+        start_time = DateTime(params[:start_date], Time(12, 0, 0))
 
-        # Build the DataFrame from the dict
+        # Build the DataFrame from the dict. hist entry 1 is the initial state; entry i is recorded at the end of the step that simulated day start_time + (i-2)
         df = DataFrame(
             state    = [s        for (s, b) in keys(model.hist) for _ in eachindex(model.hist[(s,b)])],
             age_low  = [b[1]     for (s, b) in keys(model.hist) for _ in eachindex(model.hist[(s,b)])],
             age_high = [b[2]     for (s, b) in keys(model.hist) for _ in eachindex(model.hist[(s,b)])],
             timer     = [i        for (s, b) in keys(model.hist) for i in eachindex(model.hist[(s,b)])],
-            datetime = [start_time + Dates.Day(i-1) for (s, b) in keys(model.hist) for i in eachindex(model.hist[(s,b)])],
+            datetime = [start_time + Dates.Day(i-2) for (s, b) in keys(model.hist) for i in eachindex(model.hist[(s,b)])],
             count    = [v        for (s, b) in keys(model.hist) for v in model.hist[(s,b)]]
         )
 
@@ -253,6 +254,8 @@ function initialize(net,
     space = GraphSpace(net)
     hist = Dict((s, bin) => Int[] for s in states, bin in age_bins)
 
+    start_time = DateTime(params[:start_date], Time(12, 0, 0))
+
     # define model properties
     properties = Dict(
         :base_susceptibility => base_susceptibility,
@@ -261,10 +264,11 @@ function initialize(net,
         :days_necessary_exposure => days_necessary_exposure,
         :affection_age_dependent => affection_age_dependent,
         #starting time, start at midnight
-        :timer => DateTime(2025, 1, 9, 12, 00), #TODO: Need to figure out starting date
+        :timer => start_time,
         :exp_trial => exp_trial,
         :output_path => [],
         :hist => hist,
+        :newly_affected => Dict(bin => 0 for bin in age_bins), # S -> A transitions during the current iteration, per age bin
         :hist_timer => [],
         :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[])
     )
@@ -319,7 +323,7 @@ function initialize(net,
                                 params[:health_status], 
                                 0,
                                 params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
-                                params[:experienced_plans_dict], 1)
+                                params[:experienced_plans_dict], 1, 1)
         
         add_agent_single!(p, model)
     end
@@ -363,9 +367,18 @@ end
 function push_state_count_to_history!(model)
     for s in states
         for bin in age_bins
-            c = sum(agent.health_status == s && age_bin(agent.SNZ_age) == bin for agent in allagents(model))
+            if s == "newlyaffected"
+                # not a health_status agents hold -- counted as S -> A transitions in agent_step!
+                c = model.newly_affected[bin]
+            else
+                c = sum(agent.health_status == s && age_bin(agent.SNZ_age) == bin for agent in allagents(model))
+            end
             push!(model.hist[(s, bin)], c)
         end
+    end
+    # reset transition counter for the next iteration
+    for bin in age_bins
+        model.newly_affected[bin] = 0
     end
 end
 
@@ -396,6 +409,7 @@ function agent_step!(person, model)
         #affected_chance = 0.3
         if rand() <= affected_chance
             person.health_status = "affected"
+            model.newly_affected[age_bin(person.SNZ_age)] += 1
         else
             person.health_status = "susceptible"
             person.days_exposed = 0
