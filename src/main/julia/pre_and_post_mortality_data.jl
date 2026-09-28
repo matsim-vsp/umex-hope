@@ -7,7 +7,7 @@ into a single tidy, long-format CSV with exactly three columns:
 
     date    -- Date
     deaths  -- Float64  (overall count, no age breakdown)
-    source  -- String   ("RKI", "Destatis", "EuroMOMO", "Wolfsburg_Leitstelle")
+    source  -- String   ("RKI", "Destatis", "EuroMOMO", "Helmstedt_Leitstelle")
 
 Data sources
 ------------
@@ -26,7 +26,7 @@ Data sources
    "European death counts" description) -- not Germany-specific. Only the
    "Total" age group is used.
 
-4. Wolfsburg Leitstelle (RTW dispatch) counts
+4. Helmstedt Leitstelle (RTW dispatch) counts
    Daily, local csv you provide.
    NOTE: this is NOT a death count -- it's the daily number of ambulance
    ("Rettungswagen") dispatches. It's included in the same 3-column schema
@@ -61,12 +61,12 @@ const PLOT_YEAR           = 2026   # plot_combined() only shows this year's data
 
 # Panel order (top to bottom) and one fixed colour per source, so a given
 # source always maps to the same colour if you reuse these elsewhere.
-const SOURCE_ORDER  = ["RKI", "Destatis", "EuroMOMO", "Wolfsburg_Leitstelle"]
+const SOURCE_ORDER  = ["RKI", "Destatis", "EuroMOMO", "Helmstedt_Leitstelle"]
 const SOURCE_COLORS = Dict(
     "RKI"                  => "#2a78d6",  # blue
     "Destatis"              => "#eb6834",  # orange
     "EuroMOMO"              => "#1baf7a",  # aqua
-    "Wolfsburg_Leitstelle"  => "#eda100",  # yellow
+    "Helmstedt_Leitstelle"  => "#eda100",  # yellow
 )
 
 const DESTATIS_URL = "https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/" *
@@ -214,15 +214,33 @@ function load_euromomo(; page_url = EUROMOMO_PAGE_URL)
 end
 
 # =====================================================================
-# 4) Wolfsburg Leitstelle -- daily RTW dispatch counts
+# 4) Helmstedt Leitstelle -- daily RTW dispatch counts
 # =====================================================================
 function load_leitstelle(path::AbstractString)
     tbl = CSV.read(path, DataFrame)
     DataFrame(
         date   = Date.(tbl.Datum),
         deaths = Float64.(tbl.Anzahl),
-        source = "Wolfsburg_Leitstelle",
+        source = "Helmstedt_Leitstelle",
     )
+end
+
+#Conversion from daily to weekly values
+
+function load_leitstelle_weekly(path::AbstractString; complete_weeks_only::Bool = true)
+    daily = load_leitstelle(path)
+    daily.week_end = lastdayofweek.(daily.date)   # Sunday that ends each Mon–Sun week
+
+    weekly = combine(groupby(daily, :week_end),
+        :deaths => mean => :deaths,
+        nrow    => :n_days,
+    )
+
+    complete_weeks_only && filter!(:n_days => ==(7), weekly)
+    select!(weekly, Not(:n_days))
+    rename!(weekly, :week_end => :date)
+    weekly.source .= "Helmstedt_Leitstelle"
+    sort!(weekly, :date)
 end
 
 ### FROM HERE: PART OF POSTPROCESSING
@@ -241,14 +259,14 @@ PNG and returns the plot object.
 """
 function plot_mortality_data(csv_path::AbstractString = OUTPUT_CSV_PATH;
                               save_path::AbstractString = PLOT_PATH,
-                              year::Integer = PLOT_YEAR,
+                              start_date::Date = Date(2026, 5, 1),
                               pre_or_post::AbstractString = "pre",
                               model_csv_path::Union{Nothing,AbstractString} = nothing)
     date_fmt(d) = Dates.format(Date(Dates.UTD(round(Int, d))), "yyyy-mm-dd")
 
     df = CSV.read(csv_path, DataFrame)
     df.date = Date.(df.date)
-    filter!(row -> Dates.year(row.date) == year, df)
+    filter!(row -> row.date >= start_date, df)
 
     sources = filter(s -> s in df.source, SOURCE_ORDER)   # keep fixed order, drop any that failed to load
     isempty(sources) && error("No sources found in $csv_path -- nothing to plot.")
@@ -280,12 +298,21 @@ function plot_mortality_data(csv_path::AbstractString = OUTPUT_CSV_PATH;
 
         model_df = CSV.read(model_csv_path, DataFrame)
         model_df.datetime = Date.(model_df.datetime)                # DateTime -> Date, matching the other 4 panels
-        filter!(row -> row.state == "affected", model_df)           # only the mortality state
-        filter!(row -> Dates.year(row.datetime) == year, model_df)  # match the other 4 panels' date range
+        filter!(row -> row.state == "newlyaffected", model_df)      # new cases per day (S -> A transitions), so a weekly sum never double-counts
         sort!(model_df, :datetime)
+        filter!(row -> row.datetime >= start_date, model_df)
+
+        # daily -> weekly: sum per Mon–Sun week, dated by its Monday (same as iso_week_to_date for the weekly sources)
+        model_df.week_start = firstdayofweek.(model_df.datetime)
+        model_weekly = combine(groupby(model_df, :week_start),
+            :count => sum => :count,
+            nrow   => :n_days,
+        )
+        filter!(:n_days => ==(7), model_weekly)   # drop incomplete first/last weeks
+        sort!(model_weekly, :week_start)
 
         model_panel = Plots.plot(
-            model_df.datetime, model_df.count;
+            model_weekly.week_start, model_weekly.count;
             seriestype  = :line,
             linewidth   = 2,
             color       = :black,          # no SOURCE_COLORS entry for the model -- adjust as you like
@@ -348,8 +375,8 @@ function preprocess_mortality_data()
         @warn "EuroMOMO load failed, skipping" exception = (e, catch_backtrace())
     end
 
-    println("Loading Wolfsburg Leitstelle data ...")
-    push!(dfs, load_leitstelle(LEITSTELLE_CSV_PATH))
+    println("Loading Helmstedt Leitstelle data ...")
+    push!(dfs, load_leitstelle_weekly(LEITSTELLE_CSV_PATH))
 
     combined = vcat(dfs...; cols = :union)
     sort!(combined, [:source, :date])
