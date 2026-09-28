@@ -52,9 +52,9 @@ using DataFrames, XLSX, CSV, HTTP, JSON, Downloads, Dates, Plots
 # =====================================================================
 # Configuration -- adjust paths as needed
 # =====================================================================
-const RKI_XLSX_PATH       = "HitzebedingteMortalitaetRKI.xlsx"
+const RKI_XLSX_PATH       = "../shared-svn/projects/umex-hope/data/input-julia-abm/HitzebedingteMortalitaetRKI.xlsx"
 const RKI_YEAR            = 2026   # only this year's RKI rows are kept
-const LEITSTELLE_CSV_PATH = "Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv"
+const LEITSTELLE_CSV_PATH = "../shared-svn/projects/umex-hope/data/input-julia-abm/Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv"
 const OUTPUT_CSV_PATH     = "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 const PLOT_PATH           = "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).png"
 const PLOT_YEAR           = 2026   # plot_combined() only shows this year's data

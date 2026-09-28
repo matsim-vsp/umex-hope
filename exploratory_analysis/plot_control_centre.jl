@@ -2,11 +2,11 @@ using CSV, DataFrames, StatsPlots, Dates, Statistics
 
 #Read in temperature data for Hannover --> Timing of heat wave
 include("../temperature.jl")
-temperature_hannover = temperature_reader("TemperatureHannoverDWD.txt")
+temperature_hannover = temperature_reader("../shared-svn/projects/umex-hope/data/input-julia-abm/TemperatureHannoverDWD.txt")
 temperature_hannover = select(temperature_hannover, :DATE, :TX)
 
 # Read the CSV file
-df = CSV.read("./Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv", DataFrame)
+df = CSV.read("../shared-svn/projects/umex-hope/input-julia-abm/Taegliche_RTW_Counts_gesamt_2026-01-01_bis_2026-07-06.csv", DataFrame)
 df = leftjoin(df, temperature_hannover, on = :Datum => :DATE)
 
 # Remove the date 2026-07-06 (it's equal to zero --> calls had probably not been recorded yet)
