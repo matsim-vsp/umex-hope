@@ -1,3 +1,6 @@
+# GR runs headless: plots are only written to disk via savefig, no pop-up windows. Must be set before Plots is loaded.
+ENV["GKSwstype"] = "nul"
+
 include("preprocessing.jl")
 include("model.jl")
 include("../../../population.jl")
