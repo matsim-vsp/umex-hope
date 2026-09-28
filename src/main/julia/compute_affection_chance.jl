@@ -20,11 +20,24 @@ function compute_agent_relative_risk(params, model, person)
         else
             person.relative_risk = 1.16 + 0.015 * randn()
         end
+    elseif params[:relative_risk_module] == "Choudhary"
+    #Based on https://www.cdc.gov/mmwr/preview/mmwrhtml/ss6313a1.htm (Table 1)
+        if person.SNZ_age < 5
+            person.relative_risk = 0.2 / 0.9
+        elseif person.SNZ_age < 15
+            person.relative_risk = 0.2 / 0.9
+        elseif person.SNZ_age < 35
+            person.relative_risk = 0.9 / 0.9
+        elseif person.SNZ_age < 65
+            person.relative_risk = 1.8 / 0.9
+        else
+            person.relative_risk = 5.7 / 0.9
+        end
     end
 end
 
 function compute_affection_chance(params, model, person)
-    person.affection_theta = 10
+    person.affection_theta = params[:affection_theta]
     compute_agent_relative_risk(params, model, person)
     dosis = compute_dosis(params,model,person)
     if params[:heat_time_module] == "activity_based"
