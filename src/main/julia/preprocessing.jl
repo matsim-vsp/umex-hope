@@ -2,6 +2,52 @@ using Plots, Dates, HTTP, CSV, DataFrames, Statistics, Random
 
 include("utci.jl")
 
+# Distinct, muted categorical colors (Tableau 10 + 5 light tints), grey reserved for "other"
+const ACTIVITY_COLORS = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+                         "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#A0CBE8",
+                         "#FFBE7D", "#8CD17D", "#D4A6C8", "#499894", "#BAB0AC"]
+
+# Stacked bar chart of time per activity for a set of agents; writes <basepath>.pdf and <basepath>.png
+function plot_stacked_activities(agent_ids, values_matrix, cols, basepath; legend_columns = 5)
+    # legend (and stacking) order: home first, other last, everything else alphabetical
+    ordered = [filter(==("home"), cols); sort(filter(c -> c ∉ ("home", "other"), cols)); filter(==("other"), cols)]
+    perm = [findfirst(==(c), cols) for c in ordered]
+
+    StatsPlots.groupedbar(
+        string.(agent_ids),
+        values_matrix[:, perm],
+        bar_position   = :stack,
+        label          = permutedims(ordered),
+        color          = permutedims(ACTIVITY_COLORS[1:length(cols)]),
+        linecolor      = :white,
+        linewidth      = 0.5,
+        xlabel         = "Agent ID",
+        ylabel         = "Time (hours)",
+        title          = "Time at Activities by Agent",
+        legend         = :outerbottom,
+        legend_columns = legend_columns,   # rows follow from ceil(length(cols) / legend_columns)
+        foreground_color_legend = nothing,
+        xrotation      = 90,
+        grid           = :y,
+        gridalpha      = 0.3,
+        framestyle     = :box,
+        bottom_margin  = 12mm,
+        left_margin    = 10mm,
+        guidefontsize  = 36,
+        tickfontsize   = 28,
+        legendfontsize = 28,
+        titlefontsize  = 36,
+        size           = (1800, 1600),   # 2x the typical (900, 700) — higher pixel density
+        dpi            = 300
+    )
+
+    savefig(string(basepath, ".pdf"))
+    savefig(string(basepath, ".png"))
+end
+
+# Start date for all timeline plots
+const PLOT_START = DateTime("2026-05-01T00:00:00")
+
 function preprocessing(df_merged, output_path)
     df_merged = filter(r -> r.timestamp < DateTime("2026-09-01T00:00:00"), df_merged)
 
@@ -14,8 +60,12 @@ function preprocessing(df_merged, output_path)
     vars   = [:air_temperature_c, :relative_humidity_pct, :wind_speed_ms, :Tmrt_C]
     labels = ["Air Temperature (°C)", "Relative Humidity (%)", "Wind Speed (m/s)", "Tmrt (°C)"]
 
+    # one value per day: noon
+    df_plot = filter(r -> r.timestamp >= PLOT_START && Time(r.timestamp) == Time(12, 0, 0), df_merged)
+    sort!(df_plot, :timestamp)
+
     plots = [
-        Plots.plot(df_merged.timestamp, df_merged[!, v];
+        Plots.plot(df_plot.timestamp, df_plot[!, v];
             label     = nothing,
             ylabel    = l,
             linewidth = 2,
@@ -30,6 +80,8 @@ function preprocessing(df_merged, output_path)
         xlabel  = ["Date" "Date" "Date" "Date"],   # only label the bottom panel
         size    = (1200, 800),
         plot_title = "UTCI input variables",
+        left_margin   = 10mm,   # keep y-axis labels from being cut off
+        bottom_margin = 10mm,   # keep x-axis labels from being cut off
         guidefontsize = 16,
         tickfontsize  = 12
     )
@@ -42,17 +94,28 @@ function preprocessing(df_merged, output_path)
     df_merged.UTCI = utci.(df_merged.air_temperature_c, 
                 df_merged.Tmrt_C,
                 df_merged.wind_speed_ms,
-                df_merged.Tmrt_C)
+                df_merged.relative_humidity_pct)
     
-    Plots.plot(df_merged.timestamp, df_merged.UTCI;
+    # one value per day: UTCI at noon
+    df_noon = filter(r -> r.timestamp >= PLOT_START && Time(r.timestamp) == Time(12, 0, 0), df_merged)
+    df_noon.date = Date.(df_noon.timestamp)
+    sort!(df_noon, :date)
+
+    # x-ticks on the first of every second month
+    tick_dates = collect(Date(PLOT_START):Month(2):lastdayofmonth(maximum(df_noon.date)))
+
+    Plots.plot(df_noon.date, df_noon.UTCI;
             label     = nothing,
-            ylabel    = "UTCI",
-            xlab = "Date",
+            ylabel    = "Temperature (°C)",
+            xlabel    = "Date",
+            xticks    = (Dates.value.(tick_dates), Dates.format.(tick_dates, "yyyy-mm-dd")),
             linewidth = 2,
             color     = :steelblue,
             guidefontsize = 16,
             tickfontsize  = 12,
             size    = (1200, 400),
+            left_margin   = 10mm,   # keep y-axis label from being cut off
+            bottom_margin = 10mm,   # keep x-axis label from being cut off
             plot_title = "UTCI")
     
     savefig(string(output_path,"/UTCI.pdf"))
@@ -86,28 +149,8 @@ function preprocessing(df_merged, output_path)
     # matrix of values: rows = agents, columns = activities
     values_matrix = Matrix(sub[:, cols]) ./ 3600
 
-    StatsPlots.groupedbar(
-        string.(sub.person),
-        values_matrix,
-        bar_position = :stack,
-        label = permutedims(cols),
-        xlabel = "Agent ID",
-        ylabel = "Time (hours)",
-        title = "Time at Activities by Agent",
-        legend = :outertopright,
-        xrotation = 45,
-        bottom_margin = 12mm,
-        left_margin = 10mm,
-        guidefontsize = 36,
-        tickfontsize  = 28,
-        legendfontsize = 28,
-        titlefontsize = 36,
-        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
-        dpi           = 300   
-    )
-    
-    savefig(string(output_path, "/distribution_time_at_activities_stacked.pdf"))
-    savefig(string(output_path, "/distribution_time_at_activities_stacked.png"))
+    plot_stacked_activities(sub.person, values_matrix, cols,
+        string(output_path, "/distribution_time_at_activities_stacked"))
 
     # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
     agent_attr_toosmall_DF = CSV.read(string("input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"), DataFrame)
@@ -120,28 +163,8 @@ function preprocessing(df_merged, output_path)
     # matrix of values: rows = agents, columns = activities
     values_matrix = Matrix(sub_toosmall[:, cols]) ./ 3600
 
-    StatsPlots.groupedbar(
-        string.(sub_toosmall.person),
-        values_matrix,
-        bar_position = :stack,
-        label = permutedims(cols),
-        xlabel = "Agent ID",
-        ylabel = "Time (hours)",
-        title = "Time at Activities by Agent",
-        legend = :outertopright,
-        xrotation = 45,
-        bottom_margin = 12mm,
-        left_margin = 10mm,
-        guidefontsize = 36,
-        tickfontsize  = 28,
-        legendfontsize = 28,
-        titlefontsize = 36,
-        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
-        dpi           = 300   
-    )
-    
-    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toosmall.pdf"))
-    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toosmall.png"))
+    plot_stacked_activities(sub_toosmall.person, values_matrix, cols,
+        string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toosmall"))
 
 
     # STACKED BAR CHART FOR SUBSET OF AGENTS (TOO SHORT)
@@ -155,28 +178,8 @@ function preprocessing(df_merged, output_path)
     # matrix of values: rows = agents, columns = activities
     values_matrix = Matrix(sub_toolong[:, cols]) ./ 3600
 
-    StatsPlots.groupedbar(
-        string.(sub_toolong.person),
-        values_matrix,
-        bar_position = :stack,
-        label = permutedims(cols),
-        xlabel = "Agent ID",
-        ylabel = "Time (hours)",
-        title = "Time at Activities by Agent",
-        legend = :outertopright,
-        xrotation = 45,
-        bottom_margin = 12mm,
-        left_margin = 10mm,
-        guidefontsize = 36,
-        tickfontsize  = 28,
-        legendfontsize = 28,
-        titlefontsize = 36,
-        size          = (1800, 1400),   # 2x the typical (900, 700) — higher pixel density
-        dpi           = 300   
-    )
-    
-    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toolong.pdf"))
-    savefig(string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toolong.png"))
+    plot_stacked_activities(sub_toolong.person, values_matrix, cols,
+        string(output_path, "/preprocessing_distribution_time_at_activities_stacked_toolong"))
 
     return df_merged
 end
