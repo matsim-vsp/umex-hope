@@ -17,7 +17,9 @@ df_merged = leftjoin(df_merged,   df_mrt_renamed; on = :timestamp)
 select!(df_merged, :timestamp, :air_temperature_c, :relative_humidity_pct,
                   :wind_speed_ms, :Tmrt_C)
 
-df_merged = filter(row -> Time(row.timestamp) == Time(12, 0, 0), df_merged)
+df_utci_prep = filter(row -> Time(row.timestamp) == Time(12, 0, 0), df_merged)
 
-println(first(df_merged, 5))
-println("\n$(nrow(df_merged)) rows, columns: $(names(df_merged))")
+println(first(df_utci_prep, 5))
+println("\n$(nrow(df_utci_prep)) rows, columns: $(names(df_utci_prep))")
+
+CSV.write("input/df_utci_$(Dates.format(today(), "yyyy-mm-dd")).csv", df_merged)

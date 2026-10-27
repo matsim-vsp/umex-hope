@@ -45,10 +45,19 @@ raw   = sheet[dim]              # Matrix{Any}: full used range of the sheet
 #    Rather than hard-coding a row number that would need to be revisited
 #    whenever Destatis reshuffles the file, we detect the block dynamically
 #    from the "year" column so this keeps working as the file is updated.
+#
+#    NOTE 2: Excel exports like this one only fill the "year" cell on the
+#    first row of each block and leave it blank (-> `missing` once read by
+#    XLSX.jl) on the age-group sub-rows below it. `row[1] == current_year`
+#    then evaluates to `missing` for those rows (Julia's three-valued
+#    logic), and indexing with a mask that contains `missing` throws
+#    "TypeError: non-boolean (Missing) used in boolean context". `isequal`
+#    always returns a plain `Bool`, even when one side is `missing`, so it
+#    doesn't have that problem.
 # ---------------------------------------------------------------------
 data_rows    = raw[5:end, :]                       # drop rows 1-4
 current_year = data_rows[1, 1]                      # year of first data row (e.g. 2026)
-keep         = [row[1] == current_year for row in eachrow(data_rows)]
+keep         = [isequal(row[1], current_year) for row in eachrow(data_rows)]
 data_rows    = data_rows[keep, :]                   # "Insgesamt" + all age groups, current year only
 
 # ---------------------------------------------------------------------
@@ -92,13 +101,13 @@ plt = Plots.plot(
     guidefontsize = 14,   # font size of the axis titles ("Calendar week ...", "Deaths")
     tickfontsize  = 12,   # font size of the axis tick labels
 )
- 
+
 for row in eachrow(df)
-    row.agegroup == "Insgesamt" && continue
+    isequal(row.agegroup, "Insgesamt") && continue
     counts = [row[Symbol("week$i")] for i in 1:n_weeks]
     Plots.plot!(plt, weeks, counts, label = row.agegroup, linewidth = 2)
 end
- 
+
 display(plt)
 savefig(plt, "Destatis_deaths_by_agegroup.png")
 savefig(plt, "Destatis_deaths_by_agegroup.pdf")
