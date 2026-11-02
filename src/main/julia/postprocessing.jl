@@ -1,6 +1,6 @@
 using CSV, DataFrames, StatsPlots, Colors, StatsBase, Measures
 
-function postprocessing(output_path)
+function postprocessing(output_path, params, model)
 
     output_path = string("./", output_path)
 
@@ -74,5 +74,51 @@ function postprocessing(output_path)
     )
     savefig(string(output_path, "/dosis_over_time.pdf"))
     savefig(string(output_path, "/dosis_over_time.png"))
-    
+
+    #CUMULATIVE DOSIS OVER THE COURSE OF ONE DAY FOR 5 RANDOMLY CHOSEN AGENTS
+    plot_dosis_over_day(params, model, Date(2026, 6, 20), string(output_path, "/dosis_over_day_2026-06-20"))
+
+end
+
+"""
+    plot_dosis_over_day(params, model, day, basepath; n_agents = 5)
+
+    Line plot of the cumulative heat dosis of n_agents randomly chosen agents over the course of one day; writes <basepath>.pdf and <basepath>.png.
+    The hourly dosis is recomputed from the model, the value at 24:00 equals the agent's dosis for that day in dosis_accumulation_df.csv.
+"""
+function plot_dosis_over_day(params, model, day, basepath; n_agents = 5)
+    sample_ids = sample(collect(keys(model.hourly_activity_seconds)), n_agents; replace = false)
+    # x = end of each hour, starting with 0 dosis at 00:00
+    cumulative_dosis = [[0.0; cumsum(compute_hourly_dosis(params, model, id, day))] for id in sample_ids]
+
+    StatsPlots.plot(
+        0:24,
+        cumulative_dosis,
+        label          = permutedims(sample_ids),
+        color          = permutedims(ACTIVITY_COLORS[1:n_agents]),
+        linewidth      = 4,
+        xlabel         = "Time of day",
+        ylabel         = "Cumulative heat dosis",
+        title          = "Heat dosis on $(day)",
+        xticks         = (0:3:24, [lpad(h, 2, "0") * ":00" for h in 0:3:24]),
+        xlims          = (0, 24),
+        legend         = :outerbottom,
+        legend_columns = n_agents,
+        foreground_color_legend = nothing,
+        grid           = :y,
+        gridalpha      = 0.3,
+        framestyle     = :box,
+        bottom_margin  = 12mm,
+        left_margin    = 10mm,
+        right_margin   = 15mm,   # room for the "24:00" tick label
+        guidefontsize  = 36,
+        tickfontsize   = 28,
+        legendfontsize = 28,
+        titlefontsize  = 36,
+        size           = (1800, 1600),
+        dpi            = 300
+    )
+
+    savefig(string(basepath, ".pdf"))
+    savefig(string(basepath, ".png"))
 end

@@ -1,6 +1,10 @@
 # GR runs headless: plots are only written to disk via savefig, no pop-up windows. Must be set before Plots is loaded.
 ENV["GKSwstype"] = "nul"
 
+# Activate the project before any `using`, otherwise packages are loaded from the global environment and mixed with the project's versions
+using Pkg
+Pkg.activate(@__DIR__)
+
 include("preprocessing.jl")
 include("model.jl")
 include("../../../population.jl")
@@ -114,4 +118,4 @@ plot_mortality_data(
     model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
 )
 
-postprocessing(model.output_path[1])
+postprocessing(model.output_path[1], params, model)

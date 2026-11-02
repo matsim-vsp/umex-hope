@@ -263,14 +263,17 @@ function initialize(net,
         :temp => temp,
         :days_necessary_exposure => days_necessary_exposure,
         :affection_age_dependent => affection_age_dependent,
-        #starting time, start at midnight
+        # one iteration = one day. The timer only marks the day (always 12:00); the dosis sums over all 24 hours of that day
         :timer => start_time,
         :exp_trial => exp_trial,
         :output_path => [],
         :hist => hist,
         :newly_affected => Dict(bin => 0 for bin in age_bins), # S -> A transitions during the current iteration, per age bin
         :hist_timer => [],
-        :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[])
+        :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[]),
+        # hourly UTCI (timestamp -> UTCI) and, per agent, seconds spent at each activity in each hour of the day (see compute_dosis.jl)
+        :utci_hourly => hourly_utci(params[:df_merged]),
+        :hourly_activity_seconds => Dict{String, Matrix{Float64}}()
     )
 
     # create random number generator
@@ -326,6 +329,7 @@ function initialize(net,
                                 params[:experienced_plans_dict], 1, 1)
         
         add_agent_single!(p, model)
+        model.hourly_activity_seconds[p.SNZ_id] = hourly_activity_seconds(params[:experienced_plans_dict][p.SNZ_id])
     end
 
     # set initial values for pregnancy

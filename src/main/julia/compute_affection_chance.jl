@@ -7,7 +7,7 @@ include("compute_dosis.jl")
 """
 
 function compute_agent_relative_risk(params, model, person)
-    # Based on Scovronick et al 10.1097/EE9.0000000000000336
+    # Based on Scovronick et al https://doi.org/10.1097/EE9.0000000000000336
     if params[:relative_risk_module] == "Scovronick"
         if person.SNZ_age < 40
             person.relative_risk = 1
@@ -32,6 +32,17 @@ function compute_agent_relative_risk(params, model, person)
             person.relative_risk = 1.8 / 0.9
         else
             person.relative_risk = 5.7 / 0.9
+        end
+    elseif params[:relative_risk_module] == "Winklmayr"
+    #Based on https://doi.org/10.3238/arztebl.m2022.0202 (Figure 7), Region north
+        if person.SNZ_age < 65
+            person.relative_risk = 1.15
+        elseif person.SNZ_age < 75
+            person.relative_risk = 1.2
+        elseif person.SNZ_age < 85
+            person.relative_risk = 1.3
+        else 
+            person.relative_risk = 1.4
         end
     end
 end
