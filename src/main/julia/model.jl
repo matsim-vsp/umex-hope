@@ -184,6 +184,7 @@ function run_model(params)
         # )
         # CSV.write(joinpath(output_path, "SusceptibleExposedAffected_diffbyage.csv"), df_diffbyage)
         CSV.write(joinpath(output_path, "dosis_accumulation_df.csv"), model.dosis_accumulation_DF)
+        CSV.write(joinpath(output_path, "recovery_efficiency.csv"), model.recovery_efficiency_DF)
         return model
     end
 end
@@ -273,7 +274,12 @@ function initialize(net,
         :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[]),
         # hourly UTCI (timestamp -> UTCI) and, per agent, seconds spent at each activity in each hour of the day (see compute_dosis.jl)
         :utci_hourly => hourly_utci(params[:df_merged]),
-        :hourly_activity_seconds => Dict{String, Matrix{Float64}}()
+        :hourly_activity_seconds => Dict{String, Matrix{Float64}}(),
+        # hourly air temperature (timestamp -> °C), used for the nightly minimum temperature
+        :air_temperature_hourly => Dict(zip(params[:df_merged].timestamp, params[:df_merged].air_temperature_c)),
+        # recomputed at the beginning of every day (first day: in initialize, then in model_step!) from the minimum temperature between 00:00 and 05:59 of that day
+        :recovery_efficiency => 1.0,
+        :recovery_efficiency_DF => DataFrame(date = Date[], recovery_efficiency = Float64[], min_temperature = Float64[])
     )
 
     # create random number generator
@@ -352,6 +358,9 @@ function initialize(net,
 
     # push cnts to first entry in history of each disease states
     push_state_count_to_history!(model)
+
+    # recovery_efficiency for the first day, before any agent steps
+    update_recovery_efficiency!(model)
     return model
 end
 
@@ -360,6 +369,24 @@ function model_step!(model)
     # push disease state counts for current (ending) iteration to respective history. 
     push_state_count_to_history!(model)
     model.timer += Dates.Day(1)
+    # recovery_efficiency for the day that starts now, so it is available during the agent steps of that day.
+    # abmtime is only incremented after model_step!, so the last simulated day ends when abmtime(model) + 1 == iterations
+    if abmtime(model) + 1 < params[:iterations]
+        update_recovery_efficiency!(model)
+    end
+end
+
+"""
+    update_recovery_efficiency!(model)
+
+    Sets recovery_efficiency = -0.1 * min_temp + 25, where min_temp is the minimum air temperature between 00:00 and 05:59 of the current day,
+    and appends it to recovery_efficiency_DF. Called at the beginning of each day.
+"""
+function update_recovery_efficiency!(model)
+    day = Date(model.timer)
+    min_temp = minimum(model.air_temperature_hourly[DateTime(day) + Hour(h)] for h in 0:5)
+    model.recovery_efficiency = min(-0.1 * min_temp + 2.5, 1)
+    push!(model.recovery_efficiency_DF, (date = day, recovery_efficiency = model.recovery_efficiency, min_temperature = min_temp))
 end
 
 
