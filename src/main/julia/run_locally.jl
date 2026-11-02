@@ -45,13 +45,13 @@ temperature = temperature_reader(temperature_file)
 agents_filename = "input/df_agents_attr_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 agents_filename_toolong = "input/df_agents_attr_toolong_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 agents_filename_toosmall = "input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"
+exp_plans_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_experienced_plans.xml.gz"
+exp_plans_pop_df, exp_plans_dict, exp_plans_durations_df = experienced_plans_reader(exp_plans_file)
 if isfile(agents_filename)
     agent_attr = CSV.read(agents_filename, DataFrame; types = Dict(:person => String))
 else    
     pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
     agent_attr = population_reader(pop_file)
-    exp_plans_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_experienced_plans.xml.gz"
-    exp_plans_pop_df, exp_plans_dict, exp_plans_durations_df = experienced_plans_reader(exp_plans_file)
     out_of_home_duration_df = process_all_agents(exp_plans_dict)
 
     agent_attr = leftjoin(agent_attr, out_of_home_duration_df, on = :person)
