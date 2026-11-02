@@ -101,8 +101,8 @@ function preprocessing(df_merged, output_path)
     df_noon.date = Date.(df_noon.timestamp)
     sort!(df_noon, :date)
 
-    # x-ticks on the first of every second month
-    tick_dates = collect(Date(PLOT_START):Month(2):lastdayofmonth(maximum(df_noon.date)))
+    # x-ticks on the first of every month
+    tick_dates = collect(Date(PLOT_START):Month(1):lastdayofmonth(maximum(df_noon.date)))
 
     Plots.plot(df_noon.date, df_noon.UTCI;
             label     = nothing,

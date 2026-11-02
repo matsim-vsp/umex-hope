@@ -35,6 +35,7 @@ include("compute_affection_chance.jl")
     other_time::Float64
     health_status::String # susceptible, exposed, affected, newlyaffected
     dosis::Float64
+    dosis_midnight::Float64 # dosis accumulated up to the end of the previous day (incl. remainder of earlier nights), overwritten every day
     heat_exposure::Float64
     days_exposed :: Int
     inf_chance_for_iteration::Float64 # if susceptible person had contact with infectious person, then this variable saves the infection chance (including the reduction_factor). In all other cases: missing
@@ -130,59 +131,6 @@ function run_model(params)
         CSV.write(joinpath(output_path, "SusceptibleExposedAffected.csv"), df_aggregated)
         push!(model.output_path, output_path)
 
-        # df_diffbyage = DataFrame(
-        #     timer = model.hist_timer,
-        #     susceptible0010 = model.hist_susceptible0010,
-        #     exposed0010 = model.hist_exposed0010,
-        #     affected0010 = model.hist_affected0010,
-        #     newlyaffected0010 = model.hist_newlyaffected0010,
-
-        #     susceptible1120 = model.hist_susceptible1120,
-        #     exposed1120 = model.hist_exposed1120,
-        #     affected1120 = model.hist_affected1120,
-        #     newlyaffected1120 = model.hist_newlyaffected1120,
-
-        #     susceptible2130 = model.hist_susceptible2130,
-        #     exposed2130 = model.hist_exposed2130,
-        #     affected2130 = model.hist_affected2130,
-        #     newlyaffected2130 = model.hist_newlyaffected2130,
-
-        #     susceptible3140 = model.hist_susceptible3140,
-        #     exposed3140 = model.hist_exposed3140,
-        #     affected3140 = model.hist_affected3140,
-        #     newlyaffected3140 = model.hist_newlyaffected3140,
-
-        #     susceptible4150 = model.hist_susceptible4150,
-        #     exposed4150 = model.hist_exposed4150,
-        #     affected4150 = model.hist_affected4150,
-        #     newlyaffected4150 = model.hist_newlyaffected4150,
-
-        #     susceptible5160 = model.hist_susceptible5160,
-        #     exposed5160 = model.hist_exposed5160,
-        #     affected5160 = model.hist_affected5160,
-        #     newlyaffected5160 = model.hist_newlyaffected5160,
-
-        #     susceptible6170 = model.hist_susceptible6170,
-        #     exposed6170 = model.hist_exposed6170,
-        #     affected6170 = model.hist_affected6170,
-        #     newlyaffected6170 = model.hist_newlyaffected6170,
-
-        #     susceptible7180 = model.hist_susceptible7180,
-        #     exposed7180 = model.hist_exposed7180,
-        #     affected7180 = model.hist_affected7180,
-        #     newlyaffected7180 = model.hist_newlyaffected7180,
-
-        #     susceptible8190 = model.hist_susceptible8190,
-        #     exposed8190 = model.hist_exposed8190,
-        #     affected8190 = model.hist_affected8190,
-        #     newlyaffected8190 = model.hist_newlyaffected8190,
-
-        #     susceptible91inf = model.hist_susceptible91inf,
-        #     exposed91inf = model.hist_exposed91inf,
-        #     affected91inf = model.hist_affected91inf,
-        #     newlyaffected91inf = model.hist_newlyaffected91inf
-        # )
-        # CSV.write(joinpath(output_path, "SusceptibleExposedAffected_diffbyage.csv"), df_diffbyage)
         CSV.write(joinpath(output_path, "dosis_accumulation_df.csv"), model.dosis_accumulation_DF)
         CSV.write(joinpath(output_path, "recovery_efficiency.csv"), model.recovery_efficiency_DF)
         return model
@@ -279,7 +227,8 @@ function initialize(net,
         :air_temperature_hourly => Dict(zip(params[:df_merged].timestamp, params[:df_merged].air_temperature_c)),
         # recomputed at the beginning of every day (first day: in initialize, then in model_step!) from the minimum temperature between 00:00 and 05:59 of that day
         :recovery_efficiency => 1.0,
-        :recovery_efficiency_DF => DataFrame(date = Date[], recovery_efficiency = Float64[], min_temperature = Float64[])
+        :recovery_efficiency_DF => DataFrame(date = Date[], recovery_efficiency = Float64[], min_temperature = Float64[]),
+        :max_night_recovery_rate => params[:max_night_recovery_rate]
     )
 
     # create random number generator
@@ -331,6 +280,7 @@ function initialize(net,
                                 params[:agent_attributes][id,25], 
                                 params[:health_status], 
                                 0,
+                                0,
                                 params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
                                 params[:experienced_plans_dict], 1, 1)
         
@@ -379,13 +329,13 @@ end
 """
     update_recovery_efficiency!(model)
 
-    Sets recovery_efficiency = -0.1 * min_temp + 25, where min_temp is the minimum air temperature between 00:00 and 05:59 of the current day,
+    Sets recovery_efficiency = clamp(-0.1 * min_temp + 2.5, 0, 1), where min_temp is the minimum air temperature between 00:00 and 05:59 of the current day,
     and appends it to recovery_efficiency_DF. Called at the beginning of each day.
 """
 function update_recovery_efficiency!(model)
     day = Date(model.timer)
     min_temp = minimum(model.air_temperature_hourly[DateTime(day) + Hour(h)] for h in 0:5)
-    model.recovery_efficiency = min(-0.1 * min_temp + 2.5, 1)
+    model.recovery_efficiency = clamp(-0.1 * min_temp + 2.5, 0, 1)
     push!(model.recovery_efficiency_DF, (date = day, recovery_efficiency = model.recovery_efficiency, min_temperature = min_temp))
 end
 
@@ -428,6 +378,7 @@ function agent_step!(person, model)
         if rand() <= model.recovery_rate #Agents recover with a probability of recovery_rate
             person.health_status = "susceptible"
             person.days_exposed = -1
+            person.dosis_midnight = 0
         end
     end
 
@@ -436,6 +387,7 @@ function agent_step!(person, model)
 
         # S -> A
         dosis, affected_chance = compute_affection_chance(params, model, person)
+        person.dosis_midnight = dosis
         push!(model.dosis_accumulation_DF, (agentid = person.SNZ_id, heatdosis = dosis, timer = model.timer))        
         #affected_chance = 0.3
         if rand() <= affected_chance
