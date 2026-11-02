@@ -101,9 +101,24 @@ function compute_dosis_for_activity_based_heat(params, thresholds, model, person
 end
 
 """
+    nighttime_recovery(agent, model)
+
+    Recovery from the dosis accumulated throughout the previous day while sleeping (00:00 - 05:59).
+    Modeled as exponential decay s(t) = s_0 * exp(-max_night_recovery_rate * recovery_efficiency * t) for t in 0:5,
+    where s_0 = agent.dosis_midnight. On hot (tropical) nights recovery_efficiency < 1, so part of the dosis remains.
+    Returns the remaining dosis s(5), to which the dosis of the new day is added.
+"""
+function nighttime_recovery(agent, model)
+    s_0 = agent.dosis_midnight
+    s = [s_0 * exp(-model.max_night_recovery_rate * model.recovery_efficiency * t) for t in 0:5]
+    return s[end]
+end
+
+"""
     compute_dosis(params, model, person)
 
-    Calculates dosis (e.g. of heat or virus particles) agent is exposed to over the course of the day.
+    Calculates dosis (e.g. of heat or virus particles) agent is exposed to over the course of the day,
+    plus the remainder of the previous day's dosis that was not recovered during the night (see nighttime_recovery).
 """
 function compute_dosis(params, model, person)
     if params[:heat_time_module] == "24_hours"
@@ -119,5 +134,5 @@ function compute_dosis(params, model, person)
             dosis = compute_dosis_for_activity_based_heat(params, thresholds, model, person)
         end
     end
-
+    return nighttime_recovery(person, model) + dosis
 end
