@@ -96,7 +96,7 @@ function postprocessing(output_path, params, model)
     savefig(string(output_path, "/dosis_over_time.png"))
 
     #CUMULATIVE DOSIS OVER THE COURSE OF TWO DAYS FOR 5 RANDOMLY CHOSEN AGENTS, INCL. NIGHTTIME RECOVERY
-    plot_dosis_over_days(params, model, [Date(2026, 6, 26), Date(2026, 6, 27)], string(output_path, "/dosis_over_days_2026-06-20_to_2026-06-21"))
+    plot_dosis_over_days(params, model, [Date(2026, 6, 26), Date(2026, 6, 27)], string(output_path, "/dosis_over_days_2026-06-26_to_2026-06-27"))
 
 end
 
