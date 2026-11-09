@@ -7,10 +7,14 @@ const ACTIVITY_COLORS = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
                          "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#A0CBE8",
                          "#FFBE7D", "#8CD17D", "#D4A6C8", "#499894", "#BAB0AC"]
 
+# Display order of activities: home first, other last, everything else alphabetical.
+# Colors are assigned in this order, so all activity plots share the same activity → color mapping.
+activity_order(cols) = [filter(==("home"), cols); sort(filter(c -> c ∉ ("home", "other"), cols)); filter(==("other"), cols)]
+
 # Stacked bar chart of time per activity for a set of agents; writes <basepath>.pdf and <basepath>.png
 function plot_stacked_activities(agent_ids, values_matrix, cols, basepath; legend_columns = 5)
-    # legend (and stacking) order: home first, other last, everything else alphabetical
-    ordered = [filter(==("home"), cols); sort(filter(c -> c ∉ ("home", "other"), cols)); filter(==("other"), cols)]
+    # legend (and stacking) order
+    ordered = activity_order(cols)
     perm = [findfirst(==(c), cols) for c in ordered]
 
     StatsPlots.groupedbar(
@@ -45,6 +49,55 @@ function plot_stacked_activities(agent_ids, values_matrix, cols, basepath; legen
     savefig(string(basepath, ".png"))
 end
 
+# Age groups available for the violin plot: filter on SNZ_age, title label, file name suffix
+const VIOLIN_AGE_GROUPS = Dict(
+    :all         => (filter_fn = age -> true,      label = "all agents", suffix = "all"),
+    :age65plus   => (filter_fn = age -> age >= 65, label = "age >= 65",  suffix = "65plus"),
+    :age18orless => (filter_fn = age -> age <= 18, label = "age <= 18",  suffix = "18orless")
+)
+
+# Violin plot of time per activity, all activities in one panel; writes <basepath>_<suffix>.pdf and <basepath>_<suffix>.png.
+# age_group selects the agents to plot (see VIOLIN_AGE_GROUPS: :all, :age65plus, :age18orless).
+# Only agents who actually spend time at an activity (> 0 h) enter that activity's violin.
+function plot_violin_activities(df_agents, cols, basepath, age_group)
+    haskey(VIOLIN_AGE_GROUPS, age_group) ||
+        error("Unknown age group $(age_group). Choose one of $(collect(keys(VIOLIN_AGE_GROUPS))).")
+    group = VIOLIN_AGE_GROUPS[age_group]
+    df_agents = filter(row -> group.filter_fn(row.SNZ_age), df_agents)
+
+    ordered = activity_order(cols)
+
+    p = StatsPlots.plot(
+        xlabel         = "Activity",
+        ylabel         = "Time (hours)",
+        title          = "Distributions of time spent at activities ($(group.label))",
+        legend         = false,
+        xrotation      = 90,
+        grid           = :y,
+        gridalpha      = 0.3,
+        framestyle     = :box,
+        bottom_margin  = 40mm,
+        left_margin    = 20mm,
+        guidefontsize  = 36,
+        tickfontsize   = 28,
+        titlefontsize  = 36,
+        size           = (2400, 1600),
+        dpi            = 300
+    )
+
+    for (i, col) in enumerate(ordered)
+        hours = filter(>(0), df_agents[!, col] ./ 3600)
+        isempty(hours) && continue
+        x = fill(string(col, " (n = ", length(hours), ")"), length(hours))
+        StatsPlots.violin!(p, x, hours, color = ACTIVITY_COLORS[i], linecolor = ACTIVITY_COLORS[i])
+        StatsPlots.boxplot!(p, x, hours,
+            fillalpha = 0, linecolor = :black, linewidth = 2, bar_width = 0.15, outliers = false)
+    end
+
+    savefig(p, string(basepath, "_", group.suffix, ".pdf"))
+    savefig(p, string(basepath, "_", group.suffix, ".png"))
+end
+
 # Start date for all timeline plots
 const PLOT_START = DateTime("2026-05-01T00:00:00")
 
@@ -53,7 +106,9 @@ function preprocessing(df_merged, output_path)
 
     df_merged.air_temperature_c = coalesce.(df_merged.air_temperature_c, 0.0)
     df_merged.relative_humidity_pct = coalesce.(df_merged.relative_humidity_pct, 0.0)
-    df_merged.wind_speed_ms = coalesce.(df_merged.wind_speed_ms, 0.0)
+    any(ismissing, df_merged.wind_speed_ms) &&
+        error("We are missing data on wind speed. Cannot compute UTCI")
+    df_merged.wind_speed_ms = disallowmissing(df_merged.wind_speed_ms)
     df_merged.Tmrt_C    = coalesce.(df_merged.Tmrt_C, 0.0)
 
     # Plot of UTCI input variables
@@ -138,6 +193,13 @@ function preprocessing(df_merged, output_path)
     end
     StatsPlots.plot(plots..., layout = (3, 5), size = (1000, 600))
     savefig(string(output_path, "/distribution_time_at_activities.pdf"))
+
+    # VIOLIN PLOT OF TIME SPENT AT ACTIVITIES (agents whose activity durations sum up to ~24 h)
+    agent_attr_24h_DF = filter(row -> abs(row.total_hours - 24) <= 0.5, agent_attr_DF)
+    for age_group in (:all, :age65plus, :age18orless)
+        plot_violin_activities(agent_attr_24h_DF, cols,
+            string(output_path, "/distribution_time_at_activities_violin"), age_group)
+    end
 
     # STACKED BAR CHART FOR SUBSET OF AGENTS
     # pick a manageable number of agents (e.g. 20 random ones)
