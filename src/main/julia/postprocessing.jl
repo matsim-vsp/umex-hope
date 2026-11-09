@@ -47,14 +47,22 @@ function postprocessing(output_path, params, model)
 
     sub = filter(r -> r.state == "affected", df_byage)
 
+    # 8 colorblind-checked colors; age groups beyond the 8th reuse them with a dashed line, so all groups stay distinguishable
+    age_colors = ["#2A78D6", "#EB6834", "#1BAF7A", "#EDA100", "#E87BA4", "#008300", "#4A3AA7", "#E34948"]
+    n_ages = length(unique(sub.age_label))
+
     @df sub StatsPlots.plot(:datetime, :count, group=:age_label,
             xlabel = "Date",
             ylabel = "Count",
             title  = "Affected by Age Group",
             legend = :topright,
-            color  = :steelblue
+            color  = permutedims(age_colors[mod1.(1:n_ages, length(age_colors))]),
+            linestyle = permutedims([i <= length(age_colors) ? :solid : :dash for i in 1:n_ages]),
+            linewidth = 2,
+            right_margin = 15mm   # keep the last date tick from being cut off
     )
     savefig(string(output_path, "/output-SusceptibleExposedAffected_diffbyage.pdf"))
+    savefig(string(output_path, "/output-SusceptibleExposedAffected_diffbyage.png"))
 
     #DOSIS OVER TIME FOR 20 RANDOMLY CHOSEN AGENTS
     dosis_df = CSV.read(string(output_path, "/dosis_accumulation_df.csv"), DataFrame)
