@@ -17,7 +17,8 @@ df_merged = leftjoin(df_merged,   df_mrt_renamed; on = :timestamp)
 select!(df_merged, :timestamp, :air_temperature_c, :relative_humidity_pct,
                   :wind_speed_ms, :Tmrt_C)
 
-df_utci_prep = filter(row -> Time(row.timestamp) == Time(12, 0, 0), df_merged)
+# Keep all hours: the dosis computation looks up hourly UTCI / air temperature values
+df_utci_prep = df_merged
 
 println(first(df_utci_prep, 5))
 println("\n$(nrow(df_utci_prep)) rows, columns: $(names(df_utci_prep))")

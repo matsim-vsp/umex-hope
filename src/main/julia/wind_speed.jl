@@ -1,6 +1,10 @@
 using Downloads, ZipFile, CSV, DataFrames, Dates
 
 const STATION_ID = "02014"
+const STATION_ID_BACKUP = "00662"   # Braunschweig
+# Period in which station STATION_ID (Hannover) has missing data → use backup station
+const BACKUP_START = DateTime(2026, 3, 1, 0)
+const BACKUP_END   = DateTime(2026, 7, 31, 23)
 const BASE_URL   = "https://opendata.dwd.de/climate_environment/CDC/" *
                    "observations_germany/climate/hourly/wind/recent/"
 
@@ -44,15 +48,30 @@ function parse_wind_data(csv_text::String)
     return df
 end
 
-url      = get_zip_url(STATION_ID)
-println("Downloading: $url")
+function load_station(station_id::String)
+    url = get_zip_url(station_id)
+    println("Downloading: $url")
+    zr       = download_dwd_zip(url)
+    csv_text = extract_data_file(zr)
+    close(zr)
+    return parse_wind_data(csv_text)
+end
 
-zr       = download_dwd_zip(url)
-csv_text = extract_data_file(zr)
-close(zr)
+df_main   = load_station(STATION_ID)
+df_backup = load_station(STATION_ID_BACKUP)
 
-df_wind = parse_wind_data(csv_text)
+# Use Braunschweig data in the backup period and for any other hour that is
+# missing (value or whole row) at Hannover
+in_backup_period(t) = BACKUP_START <= t <= BACKUP_END
+df_wind = outerjoin(df_main, rename(df_backup, :wind_speed_ms => :wind_speed_backup);
+                    on = :timestamp)
+df_wind.wind_speed_ms = ifelse.(in_backup_period.(df_wind.timestamp),
+                                df_wind.wind_speed_backup,
+                                coalesce.(df_wind.wind_speed_ms, df_wind.wind_speed_backup))
+select!(df_wind, :timestamp, :wind_speed_ms)
+sort!(df_wind, :timestamp)
 
 println("\nFirst 5 rows:")
 println(first(df_wind, 5))
 println("\n$(nrow(df_wind)) rows, columns: $(names(df_wind))")
+println("Missing wind speed values: $(count(ismissing, df_wind.wind_speed_ms))")

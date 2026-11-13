@@ -115,12 +115,14 @@ function preprocessing(df_merged, output_path)
     vars   = [:air_temperature_c, :relative_humidity_pct, :wind_speed_ms, :Tmrt_C]
     labels = ["Air Temperature (°C)", "Relative Humidity (%)", "Wind Speed (m/s)", "Tmrt (°C)"]
 
-    # one value per day: noon
-    df_plot = filter(r -> r.timestamp >= PLOT_START && Time(r.timestamp) == Time(12, 0, 0), df_merged)
-    sort!(df_plot, :timestamp)
+    # one value per day: daily mean
+    df_plot = filter(r -> r.timestamp >= PLOT_START, df_merged)
+    df_plot.date = Date.(df_plot.timestamp)
+    df_plot = combine(groupby(df_plot, :date), vars .=> mean .=> vars)
+    sort!(df_plot, :date)
 
     plots = [
-        Plots.plot(df_plot.timestamp, df_plot[!, v];
+        Plots.plot(df_plot.date, df_plot[!, v];
             label     = nothing,
             ylabel    = l,
             linewidth = 2,
@@ -151,31 +153,59 @@ function preprocessing(df_merged, output_path)
                 df_merged.wind_speed_ms,
                 df_merged.relative_humidity_pct)
     
-    # one value per day: UTCI at noon
-    df_noon = filter(r -> r.timestamp >= PLOT_START && Time(r.timestamp) == Time(12, 0, 0), df_merged)
-    df_noon.date = Date.(df_noon.timestamp)
-    sort!(df_noon, :date)
+    # one value per day: daily mean UTCI
+    df_daily = filter(r -> r.timestamp >= PLOT_START, df_merged)
+    df_daily.date = Date.(df_daily.timestamp)
+    df_daily = combine(groupby(df_daily, :date), :UTCI => mean => :UTCI)
+    sort!(df_daily, :date)
 
-    # x-ticks on the first of every month
-    tick_dates = collect(Date(PLOT_START):Month(1):lastdayofmonth(maximum(df_noon.date)))
+    # x-ticks on the first of every month, up to and including the first of the month after the last data point
+    tick_end   = firstdayofmonth(maximum(df_daily.date)) + Month(1)
+    tick_dates = collect(Date(PLOT_START):Month(1):tick_end)
 
-    Plots.plot(df_noon.date, df_noon.UTCI;
+    p_daily = Plots.plot(df_daily.date, df_daily.UTCI;
             label     = nothing,
             ylabel    = "Temperature (°C)",
             xlabel    = "Date",
             xticks    = (Dates.value.(tick_dates), Dates.format.(tick_dates, "yyyy-mm-dd")),
-            linewidth = 2,
+            xlims     = (Dates.value(first(tick_dates)), Dates.value(tick_end)),
+            linewidth = 3,
             color     = :steelblue,
-            guidefontsize = 16,
-            tickfontsize  = 12,
-            size    = (1200, 400),
+            title     = "Daily mean")
+
+    # hourly UTCI for a single day
+    utci_day = Date(2026, 6, 26)
+    df_day = filter(r -> Date(r.timestamp) == utci_day, df_merged)
+    sort!(df_day, :timestamp)
+    isempty(df_day) && error("No data for $(utci_day). Cannot plot hourly UTCI")
+    hours = Dates.hour.(df_day.timestamp) .+ Dates.minute.(df_day.timestamp) ./ 60
+
+    p_hourly = Plots.plot(hours, df_day.UTCI;
+            label     = nothing,
+            ylabel    = "Temperature (°C)",
+            xlabel    = "Time of day",
+            # tick every hour, label every third hour
+            xticks    = (0:24, [h % 3 == 0 ? string(lpad(h, 2, '0'), ":00") : "" for h in 0:24]),
+            xlims     = (0, 24),
+            linewidth = 3,
+            color     = :steelblue,
+            title     = "Hourly values on $(utci_day)")
+
+    Plots.plot(p_daily, p_hourly;
+            layout  = (2, 1),
+            size    = (1200, 800),
+            plot_title = "UTCI",
+            plot_titlefontsize = 22,
+            titlefontsize = 18,
+            guidefontsize = 18,
+            tickfontsize  = 14,
             left_margin   = 10mm,   # keep y-axis label from being cut off
             bottom_margin = 10mm,   # keep x-axis label from being cut off
-            plot_title = "UTCI")
-    
+            right_margin  = 20mm)   # keep last x-tick labels (final date, 24:00) from being cut off
+
     savefig(string(output_path,"/UTCI.pdf"))
     savefig(string(output_path,"/UTCI.png"))
-    
+
 
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
