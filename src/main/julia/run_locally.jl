@@ -38,9 +38,9 @@ else
     )
 end
 
-pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
+pop_file = "../public-svn/matsim/scenarios/countries/de/hannover/hannover-v1.0/output/10pct/006.output_persons.csv.gz"
 agent_attr = population_reader(pop_file)
-network_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_network.xml"
+network_file = "../public-svn/matsim/scenarios/countries/de/hannover/hannover-v1.0/output/10pct/006.output_network.xml.gz"
 network = network_creation(network_file)
 trajectories_file = "path"
 temperature_file = "TemperatureHannoverDWD.txt"
@@ -49,19 +49,19 @@ temperature = temperature_reader(temperature_file)
 agents_filename = "input/df_agents_attr_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 agents_filename_toolong = "input/df_agents_attr_toolong_$(Dates.format(today(), "yyyy-mm-dd")).csv"
 agents_filename_toosmall = "input/df_agents_attr_toosmall_$(Dates.format(today(), "yyyy-mm-dd")).csv"
-exp_plans_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_experienced_plans.xml.gz"
+exp_plans_file = "../public-svn/matsim/scenarios/countries/de/hannover/hannover-v1.0/output/10pct/006.output_experienced_plans.xml.gz"
 exp_plans_pop_df, exp_plans_dict, exp_plans_durations_df = experienced_plans_reader(exp_plans_file)
 if isfile(agents_filename)
     agent_attr = CSV.read(agents_filename, DataFrame; types = Dict(:person => String))
 else    
-    pop_file = "../shared-svn/projects/umex-hope/data/dummy-output-1pct-0it/hannover-1pct.output_persons.csv.gz"
+    pop_file = "../public-svn/matsim/scenarios/countries/de/hannover/hannover-v1.0/output/10pct/006.output_persons.csv.gz"
     agent_attr = population_reader(pop_file)
     out_of_home_duration_df = process_all_agents(exp_plans_dict)
 
     agent_attr = leftjoin(agent_attr, out_of_home_duration_df, on = :person)
     agent_attr = leftjoin(agent_attr, exp_plans_durations_df, on = :person)
 
-    #TODO: SOMETHING GOES WRONG WHEN COMPUTING TIME OF WALK, CHECK ONCE YOU ARE BACK FROM CONFERENCE
+    #TODO: Agents who have legs that extend beyond midnight, have activities longer than 24h
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
     agent_attr.total_hours = [sum(row[col] for col in cols) / 3600 for row in eachrow(agent_attr)]
     agent_attr_toolong = filter(row -> row.total_hours > 24, agent_attr)
@@ -88,7 +88,8 @@ params = Dict(
     :health_status => "susceptible",
     :heat_exposure => 0, 
     :days_exposed => 0,
-    :pregnancy => 0, 
+    :pregnant => 0, # 0 = not pregnant, 1 = pregnant
+    :days_pregnant => 0,
     :premorbidity => 0,
     :pop_file => pop_file,
     :network_file => network_file,
@@ -114,6 +115,14 @@ model = run_model(params)
 plot_mortality_data(
     "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
     save_path = string(model.output_path[1], "/output-mortality.png"),
+    start_date = Date(2026, 5, 1),
+    pre_or_post = "post",
+    model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
+)
+
+plot_mortality_data(
+    "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
+    save_path = string(model.output_path[1], "/output-mortality.pdf"),
     start_date = Date(2026, 5, 1),
     pre_or_post = "post",
     model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")

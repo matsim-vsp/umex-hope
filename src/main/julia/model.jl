@@ -39,7 +39,8 @@ include("compute_affection_chance.jl")
     heat_exposure::Float64
     days_exposed :: Int
     inf_chance_for_iteration::Float64 # if susceptible person had contact with infectious person, then this variable saves the infection chance (including the reduction_factor). In all other cases: missing
-    pregnancy::Int64
+    pregnant::Int64 # 0 = not pregnant, 1 = pregnant
+    days_pregnant::Int64 # number of days the agent has been pregnant
     premorbidity::Int64
     experienced_plans_reader::Dict
     affection_theta::Float64
@@ -281,7 +282,7 @@ function initialize(net,
                                 params[:health_status], 
                                 0,
                                 0,
-                                params[:heat_exposure], params[:days_exposed], 0, params[:pregnancy], params[:premorbidity],
+                                params[:heat_exposure], params[:days_exposed], 0, params[:pregnant], params[:days_pregnant], params[:premorbidity],
                                 params[:experienced_plans_dict], 1, 1)
         
         add_agent_single!(p, model)
@@ -292,9 +293,10 @@ function initialize(net,
     for agent in allagents(model)
         if agent.SNZ_age > 16 && agent.SNZ_age < 45 && agent.SNZ_gender == "f"
            if rand() < 0.5
-            agent.pregnancy = 1
-           end 
+            agent.pregnant = 1
+           end
         end
+        agent.pregnant in (0, 1) || error("Agent $(agent.id): pregnant must be 0 or 1, got $(agent.pregnant)")
     end
 
     # set initial values for pre-morbidity
