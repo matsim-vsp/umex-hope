@@ -101,7 +101,7 @@ end
 # Start date for all timeline plots
 const PLOT_START = DateTime("2026-05-01T00:00:00")
 
-function preprocessing(df_merged, output_path)
+function preprocessing(df_merged, agent_attr, output_path)
     df_merged = filter(r -> r.timestamp < DateTime("2026-09-01T00:00:00"), df_merged)
 
     df_merged.air_temperature_c = coalesce.(df_merged.air_temperature_c, 0.0)
@@ -206,6 +206,61 @@ function preprocessing(df_merged, output_path)
     savefig(string(output_path,"/UTCI.pdf"))
     savefig(string(output_path,"/UTCI.png"))
 
+    # AGENT POPULATION: GENDER DISTRIBUTION
+    gender_labels = Dict("f" => "Female", "m" => "Male")
+    gender_counts = StatsBase.countmap(agent_attr.SNZ_gender)
+    genders = sort(collect(keys(gender_counts)))
+    gender_values = [gender_counts[g] for g in genders]
+    gender_shares = gender_values ./ sum(gender_values)
+
+    gender_colors = Dict("f" => ACTIVITY_COLORS[2], "m" => ACTIVITY_COLORS[1])   # female orange, male blue (same as activity plots)
+
+    # pie drawn from shapes (Plots.pie always starts at 3 o'clock): first split at 12 o'clock, slices run clockwise
+    bounds = π / 2 .- 2π .* [0; cumsum(gender_shares)]
+    p_gender = Plots.plot(;
+        title          = "Gender distribution",
+        titlefontsize  = 22,
+        framestyle     = :none,
+        aspect_ratio   = 1,
+        size           = (1000, 800),
+        legend         = :outerright,   # keep legend clear of the pie
+        legendfontsize = 18)
+    for (i, g) in enumerate(genders)
+        θs = range(bounds[i], bounds[i + 1]; length = 100)
+        Plots.plot!(p_gender, Plots.Shape([0; cos.(θs)], [0; sin.(θs)]);
+            label     = get(gender_labels, g, g),
+            color     = get(gender_colors, g, :grey),
+            linecolor = :white)
+        # % label at the slice's mid-angle
+        θ_mid = (bounds[i] + bounds[i + 1]) / 2
+        Plots.annotate!(p_gender, 0.5 * cos(θ_mid), 0.5 * sin(θ_mid),
+            Plots.text("$(round(100 * gender_shares[i]; digits = 1)) %", 26, :white, :center))
+    end
+
+    savefig(p_gender, string(output_path, "/agent_gender_distribution.pdf"))
+    savefig(p_gender, string(output_path, "/agent_gender_distribution.png"))
+
+    # AGENT POPULATION: AGE DISTRIBUTION (10-year age bins: 0-9, 10-19, ...)
+    age_bin_counts = StatsBase.countmap(10 .* fld.(agent_attr.SNZ_age, 10))
+    age_bins = minimum(keys(age_bin_counts)):10:maximum(keys(age_bin_counts))
+    age_bin_pct = [100 * get(age_bin_counts, b, 0) / nrow(agent_attr) for b in age_bins]   # share of all agents (%)
+    p_age = Plots.bar(["$(b)-$(b + 9)" for b in age_bins], age_bin_pct;
+        label     = nothing,
+        xlabel    = "Age group (years)",
+        ylabel    = "Share of agents (%)",
+        ylims     = (0, 1.1 * maximum(age_bin_pct)),   # headroom above the tallest bar
+        title     = "Age distribution",
+        color     = :steelblue,
+        linecolor = :white,
+        size      = (1200, 700),
+        titlefontsize = 22,
+        guidefontsize = 20,
+        tickfontsize  = 16,
+        left_margin   = 12mm,
+        bottom_margin = 12mm)
+
+    savefig(p_age, string(output_path, "/agent_age_distribution.pdf"))
+    savefig(p_age, string(output_path, "/agent_age_distribution.png"))
 
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
