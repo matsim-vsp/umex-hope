@@ -240,6 +240,43 @@ function preprocessing(df_merged, agent_attr, output_path)
     savefig(p_gender, string(output_path, "/agent_gender_distribution.pdf"))
     savefig(p_gender, string(output_path, "/agent_gender_distribution.png"))
 
+    # AGENT POPULATION: GENDER DISTRIBUTION COMPARED TO DESTATIS (Hannover)
+    destatis_gender_counts = Dict("f" => 578256, "m" => 550889)   # total: 1129158 #Data comes from https://www.statistik.niedersachsen.de/download/208549
+    destatis_gender_pct = [100 * destatis_gender_counts[g] / sum(values(destatis_gender_counts)) for g in genders]
+    gender_x = [get(gender_labels, g, g) for g in genders]
+    p_gender_cmp = Plots.bar(gender_x, 100 .* gender_shares;
+        label     = "Agents",
+        color     = ACTIVITY_COLORS[1],
+        linecolor = :white,
+        ylabel    = "Share (%)",
+        title     = "Gender distribution:\nagents vs. Destatis",
+        ylims     = (0, 1.1 * maximum([100 .* gender_shares; destatis_gender_pct])),
+        size      = (700, 700),
+        legend    = :outerbottom,   # below the plot, entries side by side on one line
+        legend_columns = 2,
+        titlefontsize  = 22,
+        guidefontsize  = 20,
+        tickfontsize   = 16,
+        legendfontsize = 16,
+        left_margin    = 12mm,
+        bottom_margin  = 12mm)
+    # Destatis as outlined (unfilled) bars on top of the agent bars
+    Plots.bar!(p_gender_cmp, gender_x, destatis_gender_pct;
+        label     = "Destatis",
+        fillalpha = 0,
+        linecolor = :black,
+        linewidth = 3)
+
+    # difference agents − Destatis (percentage points) above each pair of bars; categorical bars sit at x = 0.5, 1.5, ...
+    for (i, (a, d)) in enumerate(zip(100 .* gender_shares, destatis_gender_pct))
+        diff = a - d
+        Plots.annotate!(p_gender_cmp, i - 0.5, max(a, d) + 2.5,
+            Plots.text("$(diff >= 0 ? "+" : "−")$(abs(round(diff; digits = 1))) %", 16, :black, :center))
+    end
+
+    savefig(p_gender_cmp, string(output_path, "/agent_gender_vs_destatis.pdf"))
+    savefig(p_gender_cmp, string(output_path, "/agent_gender_vs_destatis.png"))
+
     # AGENT POPULATION: AGE DISTRIBUTION (10-year age bins: 0-9, 10-19, ...)
     age_bin_counts = StatsBase.countmap(10 .* fld.(agent_attr.SNZ_age, 10))
     age_bins = minimum(keys(age_bin_counts)):10:maximum(keys(age_bin_counts))
@@ -261,6 +298,74 @@ function preprocessing(df_merged, agent_attr, output_path)
 
     savefig(p_age, string(output_path, "/agent_age_distribution.pdf"))
     savefig(p_age, string(output_path, "/agent_age_distribution.png"))
+
+    # AGENT POPULATION: AGE DISTRIBUTION COMPARED TO DESTATIS (Hannover), using the Destatis age groups
+    # (label, youngest age, oldest age, Destatis count)
+    destatis_age_groups = [
+        ("<3",    0,   2,  31602),
+        ("3-5",   3,   5,  32444),
+        ("6-9",   6,   9,  41576),
+        ("10-15", 10,  15, 61954),
+        ("16-18", 16,  18, 30428),
+        ("19-24", 19,  24, 74614),
+        ("25-39", 25,  39, 223375),
+        ("40-59", 40,  59, 311110),
+        ("60-66", 60,  66, 103637),
+        ("67-74", 67,  74, 89960),
+        ("75+",   75,  typemax(Int), 128455)]
+    age_group_labels = first.(destatis_age_groups)
+    destatis_age_pct = 100 .* last.(destatis_age_groups) ./ sum(last.(destatis_age_groups))
+    agent_age_pct = [100 * count(a -> lo <= a <= hi, agent_attr.SNZ_age) / nrow(agent_attr)
+                     for (_, lo, hi, _) in destatis_age_groups]
+
+    p_age_cmp = Plots.bar(age_group_labels, agent_age_pct;
+        label     = "Agents",
+        color     = ACTIVITY_COLORS[1],
+        linecolor = :white,
+        xlabel    = "Age group (years)",
+        ylabel    = "Share (%)",
+        title     = "Age distribution: agents vs. Destatis",
+        ylims     = (0, 1.12 * maximum([agent_age_pct; destatis_age_pct])),   # headroom for the difference labels
+        size      = (1400, 800),
+        legend    = :outerbottom,   # below the plot, entries side by side on one line
+        legend_columns = 2,
+        titlefontsize  = 22,
+        guidefontsize  = 20,
+        tickfontsize   = 16,
+        legendfontsize = 16,
+        left_margin    = 12mm,
+        bottom_margin  = 12mm)
+    # Destatis as outlined (unfilled) bars on top of the agent bars
+    Plots.bar!(p_age_cmp, age_group_labels, destatis_age_pct;
+        label     = "Destatis",
+        fillalpha = 0,
+        linecolor = :black,
+        linewidth = 3)
+
+    # difference agents − Destatis (percentage points) above each pair of bars; categorical bars sit at x = 0.5, 1.5, ...
+    for (i, (a, d)) in enumerate(zip(agent_age_pct, destatis_age_pct))
+        diff = a - d
+        Plots.annotate!(p_age_cmp, i - 0.5, max(a, d) + 1.2,
+            Plots.text("$(diff >= 0 ? "+" : "−")$(abs(round(diff; digits = 1))) %", 14, :black, :center))
+    end
+
+    savefig(p_age_cmp, string(output_path, "/agent_age_vs_destatis.pdf"))
+    savefig(p_age_cmp, string(output_path, "/agent_age_vs_destatis.png"))
+
+    # COMBINED TWO-PANEL PLOT: GENDER AND AGE COMPARED TO DESTATIS
+    # copies, so the single-panel plots above stay unchanged; one shared legend in the age panel
+    p_gender_panel = Plots.plot!(deepcopy(p_gender_cmp); title = "Gender", xlabel = "Gender", legend = false)
+    p_age_panel    = Plots.plot!(deepcopy(p_age_cmp); title = "Age", legend = :topleft, legend_columns = 1)
+    p_population_cmp = Plots.plot(p_gender_panel, p_age_panel;
+        layout     = Plots.grid(1, 2; widths = [0.25, 0.75]),
+        size       = (1800, 800),
+        plot_title = "Agent population vs. Destatis (Hannover)",
+        plot_titlefontsize = 24,
+        left_margin   = 12mm,
+        bottom_margin = 12mm)
+
+    savefig(p_population_cmp, string(output_path, "/agent_population_vs_destatis.pdf"))
+    savefig(p_population_cmp, string(output_path, "/agent_population_vs_destatis.png"))
 
     #DISTRIBUTIONS FOR TIME SPENT AT ACTIVITIES
     cols = ["home", "educ", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", "leisure", "car", "accomp", "ride", "other"]
