@@ -6,6 +6,7 @@ using Pkg
 Pkg.activate(@__DIR__)
 
 include("preprocessing.jl")
+include("indoor_utci.jl")
 include("model.jl")
 include("../../../population.jl")
 include("../../../network_creation.jl")
@@ -72,12 +73,17 @@ else
     CSV.write(agents_filename_toosmall, agent_attr_toosmall)
 end 
 
-df_merged = preprocessing(df_utci_prep, output_path)
+# indoor UTCI (hourly, UTC) from the living-room measurements, used for time spent at home
+df_indoor_utci = indoor_utci_hourly(INDOOR_MEASUREMENTS_CSV_PATH)
+df_merged = preprocessing(df_utci_prep, df_indoor_utci, agent_attr, output_path)
+
+plot_indoor_vs_outdoor_utci(df_indoor_utci, df_merged, output_path)
 
 params = Dict(
     :seeds => 1,
-    :iterations => 123, # 2026-05-01 to 2026-08-31 (last day with Tmrt data)
-    :start_date => Date(2026, 5, 1),
+    # 2026-05-20 (first day of the indoor measurements) to 2026-08-31 (last day with Tmrt data)
+    :start_date => Date(2026, 5, 20),
+    :iterations => Dates.value(Date(2026, 8, 31) - Date(2026, 5, 20)) + 1, # = 104 days
     :affection_theta => 1e-4, # calibrated: largest theta for which the model curve is still proportional to heat dosis
     :disease => "heat", #Options: "heat", "covid", "rsv"
     :base_susceptibility => 0.05,
@@ -104,6 +110,8 @@ params = Dict(
     :heat_time_module => "activity_based", #Options: "24_hours", "out_of_home_duration", "activity_based"
     :affection_age_dependent => "Y", #Options: "Y" (makes affection chance age dependent), "N" (all agents experience exposure equally)
     :df_merged => df_merged,
+    :df_indoor_utci => df_indoor_utci,
+    :home_utci => "indoor", #Options: "indoor" (UTCI from indoor measurements for time at home, only used in "activity_based"), "outdoor"
     :relative_risk_module => "Scovronick"
     )
 
@@ -115,7 +123,7 @@ model = run_model(params)
 plot_mortality_data(
     "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
     save_path = string(model.output_path[1], "/output-mortality.png"),
-    start_date = Date(2026, 5, 1),
+    start_date = params[:start_date],
     pre_or_post = "post",
     model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
 )
@@ -123,7 +131,7 @@ plot_mortality_data(
 plot_mortality_data(
     "input/mortality_data_combined_$(Dates.format(today(), "yyyy-mm-dd")).csv";
     save_path = string(model.output_path[1], "/output-mortality.pdf"),
-    start_date = Date(2026, 5, 1),
+    start_date = params[:start_date],
     pre_or_post = "post",
     model_csv_path = string(model.output_path[1],"/SusceptibleExposedAffected.csv")
 )
