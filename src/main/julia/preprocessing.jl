@@ -1,6 +1,7 @@
 using Plots, Dates, HTTP, CSV, DataFrames, Statistics, Random
 
 include("utci.jl")
+include("time_zones.jl")
 
 # Distinct, muted categorical colors (Tableau 10 + 5 light tints), grey reserved for "other"
 const ACTIVITY_COLORS = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
@@ -101,62 +102,31 @@ end
 # Start date for all timeline plots
 const PLOT_START = DateTime("2026-05-01T00:00:00")
 
-function preprocessing(df_merged, agent_attr, output_path)
-    df_merged = filter(r -> r.timestamp < DateTime("2026-09-01T00:00:00"), df_merged)
+# Indoor measurements (1-minute resolution) from the living room of the research apartment in Braunschweig
+const INDOOR_MEASUREMENTS_CSV_PATH = "../shared-svn/projects/umex-hope/data/input-julia-abm/indoor-measurements-braunschweig/Forschungswohnung_living_room_KLUM.csv"
 
-    df_merged.air_temperature_c = coalesce.(df_merged.air_temperature_c, 0.0)
-    df_merged.relative_humidity_pct = coalesce.(df_merged.relative_humidity_pct, 0.0)
-    any(ismissing, df_merged.wind_speed_ms) &&
-        error("We are missing data on wind speed. Cannot compute UTCI")
-    df_merged.wind_speed_ms = disallowmissing(df_merged.wind_speed_ms)
-    df_merged.Tmrt_C    = coalesce.(df_merged.Tmrt_C, 0.0)
+# Day shown in the hourly panels of the UTCI and indoor measurement plots
+const UTCI_PLOT_DAY = Date(2026, 6, 26)
 
-    # Plot of UTCI input variables
-    vars   = [:air_temperature_c, :relative_humidity_pct, :wind_speed_ms, :Tmrt_C]
-    labels = ["Air Temperature (°C)", "Relative Humidity (%)", "Wind Speed (m/s)", "Tmrt (°C)"]
+"""
+    plot_utci(df, title, basepath)
 
-    # one value per day: daily mean
-    df_plot = filter(r -> r.timestamp >= PLOT_START, df_merged)
-    df_plot.date = Date.(df_plot.timestamp)
-    df_plot = combine(groupby(df_plot, :date), vars .=> mean .=> vars)
-    sort!(df_plot, :date)
+    Two-panel UTCI plot: daily mean UTCI from PLOT_START on (top) and hourly UTCI on UTCI_PLOT_DAY (bottom).
+    `df` needs the columns :timestamp (UTC, hourly) and :UTCI, where the value labelled hh is the mean over hh:00 - hh:59
+    (outdoor_hourly_means / indoor_utci_hourly). In the hourly panel it is therefore drawn at the middle of its hour, hh:30.
+    Days and hours are shown in local German time (see time_zones.jl), i.e. the same time as the agents' activities in the model.
+    Writes <basepath>.pdf and <basepath>.png.
+"""
+function plot_utci(df, title, basepath)
+    df = transform(df, :timestamp => ByRow(utc_to_local) => :local_time)
 
-    plots = [
-        Plots.plot(df_plot.date, df_plot[!, v];
-            label     = nothing,
-            ylabel    = l,
-            linewidth = 2,
-            color     = :steelblue,
-            guidefontsize = 16,
-            tickfontsize  = 12)
-        for (v, l) in zip(vars, labels)
-    ]
-
-    Plots.plot(plots...;
-        layout  = (2, 2),
-        xlabel  = ["Date" "Date" "Date" "Date"],   # only label the bottom panel
-        size    = (1200, 800),
-        plot_title = "UTCI input variables",
-        left_margin   = 10mm,   # keep y-axis labels from being cut off
-        bottom_margin = 10mm,   # keep x-axis labels from being cut off
-        guidefontsize = 16,
-        tickfontsize  = 12
-    )
-
-    savefig(string(output_path,"/UTCI_input_variables.pdf"))
-    savefig(string(output_path,"/UTCI_input_variables.png"))
-
-    # UTCI
-
-    df_merged.UTCI = utci.(df_merged.air_temperature_c, 
-                df_merged.Tmrt_C,
-                df_merged.wind_speed_ms,
-                df_merged.relative_humidity_pct)
-    
-    # one value per day: daily mean UTCI
-    df_daily = filter(r -> r.timestamp >= PLOT_START, df_merged)
-    df_daily.date = Date.(df_daily.timestamp)
-    df_daily = combine(groupby(df_daily, :date), :UTCI => mean => :UTCI)
+    # one value per day: daily mean UTCI (local days)
+    df_daily = filter(r -> r.local_time >= PLOT_START, df)
+    df_daily.date = Date.(df_daily.local_time)
+    df_daily = combine(groupby(df_daily, :date), :UTCI => mean => :UTCI, nrow => :n_hours)
+    # drop incomplete days: shifting UTC to local time leaves a few hours of the day after the last UTC day
+    # (23 hours are kept because of the DST switch day and the first indoor day, which starts at 01:00 local time)
+    filter!(r -> r.n_hours >= 23, df_daily)
     sort!(df_daily, :date)
 
     # x-ticks on the first of every month, up to and including the first of the month after the last data point
@@ -173,28 +143,28 @@ function preprocessing(df_merged, agent_attr, output_path)
             color     = :steelblue,
             title     = "Daily mean")
 
-    # hourly UTCI for a single day
-    utci_day = Date(2026, 6, 26)
-    df_day = filter(r -> Date(r.timestamp) == utci_day, df_merged)
-    sort!(df_day, :timestamp)
-    isempty(df_day) && error("No data for $(utci_day). Cannot plot hourly UTCI")
-    hours = Dates.hour.(df_day.timestamp) .+ Dates.minute.(df_day.timestamp) ./ 60
+    # hourly UTCI for a single (local) day
+    df_day = filter(r -> Date(r.local_time) == UTCI_PLOT_DAY, df)
+    sort!(df_day, :local_time)
+    isempty(df_day) && error("No data for $(UTCI_PLOT_DAY). Cannot plot hourly UTCI ($(title))")
+    # + 0.5: each value is the mean over its hour, so it is drawn at the middle of the hour
+    hours = Dates.hour.(df_day.local_time) .+ Dates.minute.(df_day.local_time) ./ 60 .+ 0.5
 
     p_hourly = Plots.plot(hours, df_day.UTCI;
             label     = nothing,
             ylabel    = "Temperature (°C)",
-            xlabel    = "Time of day",
+            xlabel    = "Time of day (local time)",
             # tick every hour, label every third hour
             xticks    = (0:24, [h % 3 == 0 ? string(lpad(h, 2, '0'), ":00") : "" for h in 0:24]),
             xlims     = (0, 24),
             linewidth = 3,
             color     = :steelblue,
-            title     = "Hourly values on $(utci_day)")
+            title     = "Hourly values on $(UTCI_PLOT_DAY)")
 
     Plots.plot(p_daily, p_hourly;
             layout  = (2, 1),
             size    = (1200, 800),
-            plot_title = "UTCI",
+            plot_title = title,
             plot_titlefontsize = 22,
             titlefontsize = 18,
             guidefontsize = 18,
@@ -203,8 +173,165 @@ function preprocessing(df_merged, agent_attr, output_path)
             bottom_margin = 10mm,   # keep x-axis label from being cut off
             right_margin  = 20mm)   # keep last x-tick labels (final date, 24:00) from being cut off
 
-    savefig(string(output_path,"/UTCI.pdf"))
-    savefig(string(output_path,"/UTCI.png"))
+    savefig(string(basepath, ".pdf"))
+    savefig(string(basepath, ".png"))
+end
+
+function preprocessing(df_merged, df_indoor_utci, agent_attr, output_path)
+    df_merged = filter(r -> r.timestamp < DateTime("2026-09-01T00:00:00"), df_merged)
+
+    df_merged.air_temperature_c = coalesce.(df_merged.air_temperature_c, 0.0)
+    df_merged.relative_humidity_pct = coalesce.(df_merged.relative_humidity_pct, 0.0)
+    any(ismissing, df_merged.wind_speed_ms) &&
+        error("We are missing data on wind speed. Cannot compute UTCI")
+    df_merged.wind_speed_ms = disallowmissing(df_merged.wind_speed_ms)
+    df_merged.Tmrt_C    = coalesce.(df_merged.Tmrt_C, 0.0)
+
+    # Plot of UTCI input variables
+    vars   = [:air_temperature_c, :relative_humidity_pct, :wind_speed_ms, :Tmrt_C]
+    labels = ["Air Temperature (°C)", "Relative Humidity (%)", "Wind Speed (m/s)", "Tmrt (°C)"]
+
+    # one value per day: daily mean per local day (timestamps are UTC, see time_zones.jl); incomplete days dropped as in plot_utci
+    df_plot = transform(df_merged, :timestamp => ByRow(utc_to_local) => :local_time)
+    filter!(r -> r.local_time >= PLOT_START, df_plot)
+    df_plot.date = Date.(df_plot.local_time)
+    df_plot = combine(groupby(df_plot, :date), vars .=> mean .=> vars, nrow => :n_hours)
+    filter!(r -> r.n_hours >= 23, df_plot)
+    sort!(df_plot, :date)
+
+    plots = [
+        Plots.plot(df_plot.date, df_plot[!, v];
+            label     = nothing,
+            ylabel    = l,
+            linewidth = 2,
+            color     = :steelblue,
+            guidefontsize = 16,
+            tickfontsize  = 12)
+        for (v, l) in zip(vars, labels)
+    ]
+
+    Plots.plot(plots...;
+        layout  = (2, 2),
+        xlabel  = ["Date" "Date" "Date" "Date"],   # only label the bottom panel
+        size    = (1500, 800),   # wide enough for the date labels next to the extra right margin
+        plot_title = "UTCI input variables",
+        left_margin   = 10mm,   # keep y-axis labels from being cut off
+        bottom_margin = 10mm,   # keep x-axis labels from being cut off
+        right_margin  = 15mm,   # keep the last date label of the right-hand panels from being cut off
+        guidefontsize = 16,
+        tickfontsize  = 12
+    )
+
+    savefig(string(output_path,"/UTCI_input_variables.pdf"))
+    savefig(string(output_path,"/UTCI_input_variables.png"))
+
+    # UTCI: outdoor (Hannover, DWD) and indoor (Braunschweig living room, see indoor_utci.jl), same layout and period
+
+    # outdoor: hourly means over hh:00 - hh:59, exactly as used in the model (see outdoor_hourly_means in time_zones.jl)
+    df_outdoor_utci = outdoor_hourly_means(df_merged)
+    df_outdoor_utci.UTCI = utci.(df_outdoor_utci.air_temperature_c,
+                df_outdoor_utci.Tmrt_C,
+                df_outdoor_utci.wind_speed_ms,
+                df_outdoor_utci.relative_humidity_pct)
+
+    plot_utci(df_outdoor_utci, "Outdoor UTCI (Hannover)", string(output_path, "/UTCI_outdoor"))
+    plot_utci(filter(r -> r.timestamp < DateTime("2026-09-01T00:00:00"), df_indoor_utci),
+              "Indoor UTCI (living room, Braunschweig)", string(output_path, "/UTCI_indoor"))
+
+    # INDOOR MEASUREMENTS (Braunschweig, living room)
+    indoor_measurements = CSV.read(INDOOR_MEASUREMENTS_CSV_PATH, DataFrame; dateformat = "yyyy-mm-dd HH:MM:SS")
+    indoor_temp_cols   = [:Air_temperature_C, :BlackGlobe_temperature_C]
+    indoor_temp_labels = ["Air temperature" "Black globe temperature"]
+    indoor_temp_colors = [ACTIVITY_COLORS[1] ACTIVITY_COLORS[2]]
+    indoor_plot_style = (
+        titlefontsize  = 18,
+        guidefontsize  = 18,
+        tickfontsize   = 14,
+        legendfontsize = 14,
+        linewidth      = 3)
+
+    # 10-minute values for a single day; temperatures (°C) and relative humidity (%) in separate panels.
+    # The measurements are in CET; they are shown in local German time (CEST in summer), like the UTCI plots and the model
+    indoor_day = UTCI_PLOT_DAY
+    df_indoor_day = transform(indoor_measurements, :Datetime => ByRow(indoor_to_local) => :local_time)
+    filter!(r -> Date(r.local_time) == indoor_day && minute(r.local_time) % 10 == 0, df_indoor_day)
+    sort!(df_indoor_day, :local_time)
+    isempty(df_indoor_day) && error("No indoor measurements for $(indoor_day). Cannot plot 10-minute values")
+    indoor_hours = Dates.hour.(df_indoor_day.local_time) .+ Dates.minute.(df_indoor_day.local_time) ./ 60
+    # tick every hour, label every third hour
+    hour_ticks = (0:24, [h % 3 == 0 ? string(lpad(h, 2, '0'), ":00") : "" for h in 0:24])
+
+    p_indoor_temp_day = Plots.plot(indoor_hours, Matrix(df_indoor_day[:, indoor_temp_cols]);
+        label  = indoor_temp_labels,
+        color  = indoor_temp_colors,
+        ylabel = "Temperature (°C)",
+        xticks = hour_ticks,
+        xlims  = (0, 24),
+        legend = :topleft,
+        indoor_plot_style...)
+    p_indoor_rh_day = Plots.plot(indoor_hours, df_indoor_day.Relative_humidity_percent;
+        label  = nothing,
+        color  = :steelblue,
+        ylabel = "Relative humidity (%)",
+        xlabel = "Time of day (local time)",
+        xticks = hour_ticks,
+        xlims  = (0, 24),
+        indoor_plot_style...)
+    p_indoor_day = Plots.plot(p_indoor_temp_day, p_indoor_rh_day;
+        layout     = (2, 1),
+        size       = (1200, 900),
+        plot_title = "Indoor measurements on $(indoor_day) (10-minute values)",
+        plot_titlefontsize = 22,
+        left_margin   = 12mm,
+        bottom_margin = 10mm,
+        right_margin  = 10mm)   # keep last x-tick label (24:00) from being cut off
+
+    savefig(p_indoor_day, string(output_path, "/indoor_measurements_10min_$(indoor_day).pdf"))
+    savefig(p_indoor_day, string(output_path, "/indoor_measurements_10min_$(indoor_day).png"))
+
+    # daily means over the whole measurement period, per local day (measurements are in CET, see indoor_to_local)
+    indoor_daily = transform(indoor_measurements, :Datetime => ByRow(t -> Date(indoor_to_local(t))) => :date)
+    indoor_daily = combine(groupby(indoor_daily, :date),
+        [:Air_temperature_C, :Relative_humidity_percent, :BlackGlobe_temperature_C] .=> mean
+        .=> [:Air_temperature_C, :Relative_humidity_percent, :BlackGlobe_temperature_C],
+        nrow => :n_minutes)
+    # drop incomplete local days (same rule as in plot_utci: at least 23 hours of data)
+    filter!(r -> r.n_minutes >= 23 * 60, indoor_daily)
+    sort!(indoor_daily, :date)
+
+    # x-axis spans the measurement period; ticks on the first of every month within it
+    indoor_first_date, indoor_last_date = extrema(indoor_daily.date)
+    indoor_tick_dates = collect(firstdayofmonth(indoor_first_date) + Month(1):Month(1):indoor_last_date)
+    indoor_date_ticks = (Dates.value.(indoor_tick_dates), Dates.format.(indoor_tick_dates, "yyyy-mm-dd"))
+    indoor_date_lims  = (Dates.value(indoor_first_date), Dates.value(indoor_last_date))
+
+    p_indoor_temp_daily = Plots.plot(indoor_daily.date, Matrix(indoor_daily[:, indoor_temp_cols]);
+        label  = indoor_temp_labels,
+        color  = indoor_temp_colors,
+        ylabel = "Temperature (°C)",
+        xticks = indoor_date_ticks,
+        xlims  = indoor_date_lims,
+        legend = :topright,
+        indoor_plot_style...)
+    p_indoor_rh_daily = Plots.plot(indoor_daily.date, indoor_daily.Relative_humidity_percent;
+        label  = nothing,
+        color  = :steelblue,
+        ylabel = "Relative humidity (%)",
+        xlabel = "Date",
+        xticks = indoor_date_ticks,
+        xlims  = indoor_date_lims,
+        indoor_plot_style...)
+    p_indoor_daily = Plots.plot(p_indoor_temp_daily, p_indoor_rh_daily;
+        layout     = (2, 1),
+        size       = (1200, 900),
+        plot_title = "Indoor measurements (daily mean)",
+        plot_titlefontsize = 22,
+        left_margin   = 12mm,
+        bottom_margin = 10mm,
+        right_margin  = 20mm)   # keep last x-tick label (final date) from being cut off
+
+    savefig(p_indoor_daily, string(output_path, "/indoor_measurements_daily_mean.pdf"))
+    savefig(p_indoor_daily, string(output_path, "/indoor_measurements_daily_mean.png"))
 
     # AGENT POPULATION: GENDER DISTRIBUTION
     gender_labels = Dict("f" => "Female", "m" => "Male")
