@@ -223,9 +223,12 @@ function initialize(net,
         :dosis_accumulation_DF => DataFrame(agentid = String[], heatdosis = Float64[], timer = DateTime[]),
         # hourly UTCI (timestamp -> UTCI) and, per agent, seconds spent at each activity in each hour of the day (see compute_dosis.jl)
         :utci_hourly => hourly_utci(params[:df_merged]),
+        # hourly UTCI for time spent at home: indoor measurements or outdoor UTCI, depending on params[:home_utci]
+        :utci_home_hourly => hourly_home_utci(params),
         :hourly_activity_seconds => Dict{String, Matrix{Float64}}(),
         # hourly air temperature (timestamp -> °C), used for the nightly minimum temperature
-        :air_temperature_hourly => Dict(zip(params[:df_merged].timestamp, params[:df_merged].air_temperature_c)),
+        # hour hh = interval hh:00 - hh:59, like the UTCI (see outdoor_hourly_means in time_zones.jl)
+        :air_temperature_hourly => Dict(zip(params[:df_merged].timestamp, outdoor_hourly_means(params[:df_merged]).air_temperature_c)),
         # recomputed at the beginning of every day (first day: in initialize, then in model_step!) from the minimum temperature between 00:00 and 05:59 of that day
         :recovery_efficiency => 1.0,
         :recovery_efficiency_DF => DataFrame(date = Date[], recovery_efficiency = Float64[], min_temperature = Float64[]),
@@ -336,7 +339,8 @@ end
 """
 function update_recovery_efficiency!(model)
     day = Date(model.timer)
-    min_temp = minimum(model.air_temperature_hourly[DateTime(day) + Hour(h)] for h in 0:5)
+    # 00:00 - 05:59 local time; air_temperature_hourly is keyed by UTC (see local_to_utc in time_zones.jl)
+    min_temp = minimum(model.air_temperature_hourly[local_to_utc(DateTime(day) + Hour(h))] for h in 0:5)
     model.recovery_efficiency = clamp(-0.1 * min_temp + 2.5, 0, 1)
     push!(model.recovery_efficiency_DF, (date = day, recovery_efficiency = model.recovery_efficiency, min_temperature = min_temp))
 end
