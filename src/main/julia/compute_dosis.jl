@@ -4,6 +4,7 @@ using Dates
 #include("compute_mrt.jl")
 #include("utci_prep.jl")
 include("utci.jl")
+include("time_zones.jl")
 
 thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", "pt", "bike", "visit", "shop", "work", "business", "walk", 
                                     "leisure", "car", "accomp", "ride", "other"],
@@ -14,14 +15,39 @@ thresholds = DataFrame(activity =  ["not_home", "home", "education", "errands", 
 # activity types / leg modes in the experienced plans whose name differs from the one in thresholds
 const plan_activity_names = Dict("educ" => "education")
 
+# local_to_utc: the agents' times are local German time, the weather lookups are keyed by UTC (see time_zones.jl)
+
 """
     hourly_utci(df_merged)
 
     Builds a lookup table timestamp -> UTCI from the hourly weather data.
 """
 function hourly_utci(df_merged)
-    return Dict(zip(df_merged.timestamp,
-                    utci.(df_merged.air_temperature_c, df_merged.Tmrt_C, df_merged.wind_speed_ms, df_merged.relative_humidity_pct)))
+    # hour hh = interval hh:00 - hh:59: mean of the DWD values at hh:00 and (hh+1):00 (see outdoor_hourly_means in time_zones.jl)
+    df = outdoor_hourly_means(df_merged)
+    return Dict(zip(df.timestamp,
+                    utci.(df.air_temperature_c, df.Tmrt_C, df.wind_speed_ms, df.relative_humidity_pct)))
+end
+
+"""
+    hourly_home_utci(params)
+
+    Lookup table timestamp -> UTCI used for time spent at home.
+    params[:home_utci] == "indoor": indoor UTCI from params[:df_indoor_utci] (see indoor_utci.jl); hours without indoor
+    measurements fall back to the outdoor UTCI (a warning reports how many hours of the simulated period this affects).
+    params[:home_utci] == "outdoor": outdoor UTCI, i.e. the previous behaviour.
+"""
+function hourly_home_utci(params)
+    outdoor = hourly_utci(params[:df_merged])
+    get(params, :home_utci, "outdoor") == "outdoor" && return outdoor
+
+    indoor = Dict(zip(params[:df_indoor_utci].timestamp, params[:df_indoor_utci].UTCI))
+    # simulated hours are local time; the lookup keys are UTC (see local_to_utc)
+    sim_start = DateTime(params[:start_date])
+    sim_hours = [local_to_utc(sim_start + Hour(h)) for h in 0:(24 * params[:iterations] - 1)]
+    n_fallback = count(t -> !haskey(indoor, t), sim_hours)
+    n_fallback > 0 && @warn "No indoor measurements for $(n_fallback) of $(length(sim_hours)) simulated hours: using outdoor UTCI at home for these hours"
+    return merge(outdoor, indoor)
 end
 
 """
@@ -74,9 +100,13 @@ function compute_hourly_dosis(params, model, agentid, day)
     hourly_dosis = zeros(24)
     day_start = DateTime(day)
     not_home_col = findfirst(==("not_home"), thresholds.activity)
+    home_col = findfirst(==("home"), thresholds.activity)
     seconds = model.hourly_activity_seconds[agentid]
     for h in 0:23
-        utci_value = model.utci_hourly[day_start + Hour(h)]
+        # h is the local hour of day (as in the activity plans); the UTCI lookups are keyed by UTC
+        t_utc = local_to_utc(day_start + Hour(h))
+        utci_value = model.utci_hourly[t_utc]
+        utci_home_value = model.utci_home_hourly[t_utc]
         if params[:heat_time_module] == "24_hours"
             hourly_dosis[h + 1] += compute_cumulative_UTCI_exceedance(utci_value, not_home_col, 1)
         elseif params[:heat_time_module] == "out_of_home_duration"
@@ -84,7 +114,9 @@ function compute_hourly_dosis(params, model, agentid, day)
         elseif params[:heat_time_module] == "activity_based"
             for col in eachindex(thresholds.activity)
                 col == not_home_col && continue
-                hourly_dosis[h + 1] += compute_cumulative_UTCI_exceedance(utci_value, col, seconds[h + 1, col] / 3600)
+                # time at home is exposed to the indoor UTCI (if params[:home_utci] == "indoor"), all other activities to the outdoor UTCI
+                utci_activity = col == home_col ? utci_home_value : utci_value
+                hourly_dosis[h + 1] += compute_cumulative_UTCI_exceedance(utci_activity, col, seconds[h + 1, col] / 3600)
             end
         end
     end
